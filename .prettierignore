@@ -1,0 +1,7 @@
+dist/
+www/
+loader/
+.stencil/
+src/components.d.ts
+src-tauri/target/
+src-tauri/gen/

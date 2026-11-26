@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="mPlay3r — Lightweight Winamp-inspired audio player built with StencilJS, dot-stash, and Tauri v2." />
+    <meta name="theme-color" content="#0e1116" />
+    <title>mPlay3r</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="stylesheet" href="/css/minimal.css" />
+    <link rel="stylesheet" href="/css/app.css" />
+    <script type="module" src="/build/mplay3r.esm.js"></script>
+  </head>
+  <body class="mp-page">
+    <main class="mp-stage">
+      <mplay3r-app id="mplay3r" global-shortcuts="true"></mplay3r-app>
+
+      <footer class="mp-stage__hints" aria-label="Keyboard shortcuts">
+        <span><kbd>Space</kbd> Play/Pause</span>
+        <span><kbd>Z</kbd> Prev</span>
+        <span><kbd>V</kbd> Stop</span>
+        <span><kbd>B</kbd> Next</span>
+        <span><kbd>S</kbd> Shuffle</span>
+        <span><kbd>R</kbd> Repeat</span>
+        <span><kbd>M</kbd> Mute</span>
+        <span><kbd>←</kbd><kbd>→</kbd> Seek</span>
+        <span><kbd>↑</kbd><kbd>↓</kbd> Volume</span>
+      </footer>
+    </main>
+  </body>
+</html>

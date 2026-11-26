@@ -1,0 +1,8 @@
+// mPlay3r Minimalist Theme scaffold (PR #1) -> dist/css/minimal.css
+// Full 5-palette minimalist theme and player skins are added in PR #4.
+
+@use './tokens';
+@use 'pkg:dot-stash/scss/themes/default/components/trigger';
+
+@include tokens.ds-keyframes();
+@include tokens.ds-tokens();

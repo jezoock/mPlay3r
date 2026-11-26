@@ -1,0 +1,90 @@
+{
+  "name": "mplay3r",
+  "version": "0.1.0",
+  "description": "Lightweight Winamp-inspired music player built with StencilJS, dot-stash and Tauri v2 — web, embeddable custom element, portable and installable desktop.",
+  "keywords": [
+    "audio-player",
+    "music-player",
+    "winamp",
+    "equalizer",
+    "playlist",
+    "stencil",
+    "web-components",
+    "dot-stash",
+    "tauri"
+  ],
+  "homepage": "https://github.com/jezoock/mPlay3r#readme",
+  "bugs": {
+    "url": "https://github.com/jezoock/mPlay3r/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jezoock/mPlay3r.git"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "main": "dist/index.cjs.js",
+  "module": "dist/index.js",
+  "types": "dist/types/index.d.ts",
+  "collection": "dist/collection/collection-manifest.json",
+  "collection:main": "dist/collection/index.js",
+  "unpkg": "dist/mplay3r/mplay3r.esm.js",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs.js"
+    },
+    "./loader": {
+      "types": "./loader/index.d.ts",
+      "import": "./loader/index.js",
+      "require": "./loader/index.cjs.js"
+    },
+    "./components": {
+      "types": "./dist/components/index.d.ts",
+      "import": "./dist/components/index.js"
+    },
+    "./css/*": "./dist/css/*",
+    "./dist/*": "./dist/*"
+  },
+  "files": [
+    "dist/",
+    "loader/"
+  ],
+  "scripts": {
+    "start": "node scripts/dev.mjs",
+    "build:css": "node scripts/build-css.mjs",
+    "build:web": "stencil build",
+    "build": "npm run clean && npm run build:css && npm run build:web",
+    "desktop:dev": "tauri dev",
+    "desktop:build": "npm run build && tauri build",
+    "clean": "node -e \"for (const dir of ['dist', 'www', '.stencil', 'loader']) require('fs').rmSync(dir, { recursive: true, force: true })\"",
+    "test": "node --import ./scripts/ts-loader.mjs --test tests/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "lint:css": "stylelint \"scss/**/*.scss\" \"src/**/*.scss\"",
+    "format": "prettier --write \"**/*.{ts,tsx,js,mjs,scss,json,html,yml,yaml,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,scss,json,html,yml,yaml,md}\""
+  },
+  "dependencies": {
+    "dot-stash": "https://github.com/jezoock/dot-stash/releases/download/v0.2.0/dot-stash-0.2.0.tgz"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@stencil/core": "^4.45.2",
+    "@stencil/sass": "^3.3.3",
+    "@tauri-apps/cli": "^2.5.0",
+    "@types/node": "^22.15.0",
+    "eslint": "^10.14.0",
+    "globals": "^17.14.0",
+    "prettier": "^3.9.10",
+    "sass": "^1.107.1",
+    "stylelint": "^17.16.0",
+    "stylelint-config-standard-scss": "^17.0.0",
+    "typescript": "~5.8.3",
+    "typescript-eslint": "^8.72.1"
+  }
+}

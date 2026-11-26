@@ -1,0 +1,22 @@
+# Dependencies & build output
+node_modules/
+dist/
+www/
+loader/
+.stencil/
+src/components.d.ts
+
+# Tauri / Rust build artifacts
+src-tauri/target/
+src-tauri/gen/
+
+# Portable local data (never commit user playlists/settings)
+data/
+portable.flag
+
+# OS & editors
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/

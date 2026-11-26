@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  web:
+    name: Web, Embed & Core Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install
+      - name: Build CSS (strict) & Stencil targets (www, dist, custom elements)
+        run: |
+          npm run clean
+          npm run build:css -- --strict
+          npm run build:web
+      - name: Verify build outputs
+        run: |
+          test -s dist/css/minimal.css
+          test -s dist/css/app.css
+          test -s www/build/mplay3r.esm.js
+          test -s dist/components/index.js
+          ls -lh dist/css/minimal.css www/build/mplay3r.esm.js
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint TypeScript
+        run: npm run lint
+      - name: Lint SCSS
+        run: npm run lint:css
+      - name: Run unit tests
+        run: npm test

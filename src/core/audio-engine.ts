@@ -277,6 +277,16 @@ export class AudioEngine {
   destroy(): void {
     this.stop();
     this.audio.src = '';
+    try {
+      this.sourceNode?.disconnect();
+      this.preampNode?.disconnect();
+      this.eqNodes.forEach(node => node.disconnect());
+      this.pannerNode?.disconnect();
+      this.masterGainNode?.disconnect();
+      this.analyserNode?.disconnect();
+    } catch {
+      // Ignore disconnect errors if nodes were already detached.
+    }
     if (this.audioContext && typeof this.audioContext.close === 'function') {
       void this.audioContext.close();
     }

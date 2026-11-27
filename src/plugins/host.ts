@@ -409,8 +409,10 @@ export class PluginHost {
       },
       fetch: async (input: string | URL, init?: RequestInit) => {
         requirePerm('network');
-        const impl = this.adapter.fetcher ?? fetch;
-        return impl(input, init);
+        const customFetcher = this.adapter.fetcher;
+        return customFetcher && customFetcher !== globalThis.fetch
+          ? customFetcher(input, init)
+          : globalThis.fetch(input, init);
       },
       registerSlot: (slot: PluginSlotDescriptor): PluginDisposer => {
         requirePerm('ui-slot');

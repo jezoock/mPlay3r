@@ -150,7 +150,7 @@ export function parsePlaylistContent(content: string, filename = '', baseUrl?: s
  */
 export async function resolveTracksInput(
   input: TrackInput[] | string,
-  fetcher: typeof fetch = fetch,
+  fetcher?: typeof fetch,
 ): Promise<ResolveTracksResult> {
   if (Array.isArray(input)) {
     return {
@@ -186,7 +186,8 @@ export async function resolveTracksInput(
 
   if (isPlaylistFilename(trimmed)) {
     try {
-      const response = await fetcher(trimmed);
+      const response =
+        fetcher && fetcher !== globalThis.fetch ? await fetcher(trimmed) : await globalThis.fetch(trimmed);
       if (!response.ok) {
         return { tracks: [], error: 'fetch-failed' };
       }

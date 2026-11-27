@@ -73,7 +73,9 @@ export class PluginStore {
   constructor(options: PluginStoreOptions) {
     this.coreVersion = options.coreVersion;
     this.storageBackend = options.storageBackend ?? createDefaultPluginStorage();
-    this.fetcher = options.fetcher ?? fetch;
+    const customFetcher = options.fetcher;
+    this.fetcher = (input, init) =>
+      customFetcher && customFetcher !== globalThis.fetch ? customFetcher(input, init) : globalThis.fetch(input, init);
     this.moduleLoader = options.moduleLoader ?? defaultBlobModuleLoader;
     this.registryUrls =
       options.initialRegistries && options.initialRegistries.length > 0

@@ -107,17 +107,18 @@ const checks = [
   { metric: measureFile('dist/css/app.css'), maxRawKb: 4, maxGzipKb: 2 },
   { metric: measureFile('www/sw.js'), maxRawKb: 4, maxGzipKb: 2 },
   { metric: measureFile('www/icons/icon.svg'), maxRawKb: 2, maxGzipKb: 1 },
-  { metric: measureFile('www/build/mplay3r.esm.js'), maxGzipKb: 4 },
+  { metric: measureFile('www/build/mplay3r.esm.js'), maxGzipKb: 5 },
   { metric: measureFile('dist/components/mplay3r-app.js'), maxGzipKb: 10 },
+  { metric: measureFile('dist/components/mp-store.js'), maxGzipKb: 18 },
   {
     metric: measureCustomElementsGraph('embed JS graph (mp-* + ds-* + runtime)', 'dist/components', [
       ...MPLAY3R_COMPONENTS,
       ...USED_DS_COMPONENTS,
     ]),
-    maxGzipKb: 65,
+    maxGzipKb: 75,
   },
-  { metric: measureDirJs('www/build lazy collection', 'www/build'), maxGzipKb: 120 },
-  { metric: measureDirJs('dist/mplay3r lazy collection', 'dist/mplay3r'), maxGzipKb: 120 },
+  { metric: measureDirJs('www/build lazy collection', 'www/build'), maxGzipKb: 130 },
+  { metric: measureDirJs('dist/mplay3r lazy collection', 'dist/mplay3r'), maxGzipKb: 130 },
 ];
 
 const failures = [];

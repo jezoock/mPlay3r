@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>mPlay3r — Embed, Multi-Instance &amp; ds-trigger Demo</title>
+    <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
+    <!-- External web apps only load minimal.css (never app.css): zero global body/heading resets. -->
+    <link rel="stylesheet" href="/css/minimal.css" />
+    <script type="module" src="/build/mplay3r.esm.js"></script>
+    <style>
+      body {
+        margin: 0;
+        padding: 2rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        background: #f1f5f9;
+        color: #0f172a;
+      }
+
+      .demo-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 2rem;
+        max-width: 1120px;
+        margin: 0 auto;
+      }
+
+      .demo-card {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        padding: 1.25rem;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+      }
+
+      .demo-card h2 {
+        margin: 0;
+        font-size: 1rem;
+      }
+
+      .demo-card p {
+        margin: 0;
+        font-size: 0.875rem;
+        color: #475569;
+      }
+
+      .external-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        align-items: center;
+      }
+
+      .headless-deck {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        padding: 1rem;
+        border-radius: 10px;
+        background: #0f172a;
+        color: #f8fafc;
+      }
+
+      .headless-deck__status {
+        font-family: ui-monospace, SFMono-Regular, monospace;
+        font-size: 0.8125rem;
+        color: #38bdf8;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="demo-grid">
+      <section class="demo-card">
+        <h2>1. Embedded widget + external ds-trigger controls</h2>
+        <p>Scoped <code>sand</code> palette with zero CSS leak onto the host page, driven from outside via <code>ds-trigger</code>.</p>
+
+        <mplay3r-app id="host-player" palette="sand" persist="false" show-equalizer="false" show-playlist="true"></mplay3r-app>
+
+        <div class="external-bar">
+          <ds-trigger type="button" mods="xs,stl-1" target="#host-player" action="togglePlay">External Play / Pause</ds-trigger>
+          <ds-trigger type="button" mods="xs,stl-2" target="#host-player" action="toggleEqualizer">Toggle EQ</ds-trigger>
+          <ds-trigger type="button" mods="xs,stl-3" target="#host-player" action="cyclePalette">Cycle Palette</ds-trigger>
+          <button type="button" id="load-demo-audio">Load synthetic demo tracks</button>
+        </div>
+      </section>
+
+      <section class="demo-card">
+        <h2>2. Second independent instance (amber compact)</h2>
+        <p>Multiple <code>&lt;mplay3r-app&gt;</code> elements coexist cleanly on the same page with isolated state and distinct palettes.</p>
+
+        <mplay3r-app id="compact-player" palette="amber" compact="true" persist="false"></mplay3r-app>
+
+        <div class="external-bar">
+          <ds-trigger type="button" mods="xs,stl-2" target="#compact-player" action="toggleCompact">Expand / Compact</ds-trigger>
+          <ds-trigger type="button" mods="xs,stl-3" target="#compact-player" action='setPalette:["emerald"]'>Switch to Emerald</ds-trigger>
+        </div>
+      </section>
+
+      <section class="demo-card">
+        <h2>3. Headless custom UI driven purely by ds-trigger</h2>
+        <p>Zero built-in player chrome: external apps and Phase 2 full-layout themes bind custom markup straight onto <code>&lt;mplay3r-app headless&gt;</code>.</p>
+
+        <mplay3r-app id="headless-player" headless="true" persist="false">
+          <div class="headless-deck">
+            <div class="headless-deck__status" id="headless-readout">Stopped — 00:00</div>
+            <div class="external-bar">
+              <ds-trigger type="button" mods="xs,stl-2" target="#headless-player" action="previous">Prev</ds-trigger>
+              <ds-trigger type="button" mods="xs,stl-1" target="#headless-player" action="togglePlay">Play / Pause</ds-trigger>
+              <ds-trigger type="button" mods="xs,stl-2" target="#headless-player" action="stop">Stop</ds-trigger>
+              <ds-trigger type="button" mods="xs,stl-2" target="#headless-player" action="next">Next</ds-trigger>
+              <ds-trigger type="button" mods="xs,stl-3" target="#headless-player" action="toggleMute">Mute</ds-trigger>
+            </div>
+          </div>
+        </mplay3r-app>
+
+        <div class="external-bar">
+          <button type="button" id="load-headless-audio">Load synth track into headless player</button>
+        </div>
+      </section>
+    </main>
+
+    <script type="module">
+      // Generates tiny offline PCM WAV blobs purely for instant demo testing without requiring local MP3 files.
+      function createChordWavUrl(freqs, seconds = 6) {
+        const sampleRate = 22050;
+        const count = sampleRate * seconds;
+        const buffer = new ArrayBuffer(44 + count * 2);
+        const view = new DataView(buffer);
+        const writeStr = (off, str) => {
+          for (let i = 0; i < str.length; i++) view.setUint8(off + i, str.charCodeAt(i));
+        };
+        writeStr(0, 'RIFF');
+        view.setUint32(4, 36 + count * 2, true);
+        writeStr(8, 'WAVEfmt ');
+        view.setUint32(16, 16, true);
+        view.setUint16(20, 1, true);
+        view.setUint16(22, 1, true);
+        view.setUint32(24, sampleRate, true);
+        view.setUint32(28, sampleRate * 2, true);
+        view.setUint16(32, 2, true);
+        view.setUint16(34, 16, true);
+        writeStr(36, 'data');
+        view.setUint32(40, count * 2, true);
+        for (let i = 0; i < count; i++) {
+          const t = i / sampleRate;
+          const env = Math.min(1, t * 4) * Math.min(1, (seconds - t) * 4);
+          const sample = freqs.reduce((acc, f) => acc + Math.sin(2 * Math.PI * f * t), 0) / freqs.length;
+          view.setInt16(44 + i * 2, Math.max(-1, Math.min(1, sample * 0.45 * env)) * 32767, true);
+        }
+        return URL.createObjectURL(new Blob([buffer], { type: 'audio/wav' }));
+      }
+
+      document.getElementById('load-demo-audio')?.addEventListener('click', async () => {
+        const player = document.getElementById('host-player');
+        await player?.addTracks(
+          [
+            { src: createChordWavUrl([220, 277.18, 329.63, 440], 8), title: 'Warm A-Major Pad', artist: 'mPlay3r Synth Demo', duration: 8, format: 'WAV', isObjectUrl: true },
+            { src: createChordWavUrl([174.61, 220, 261.63, 349.23], 8), title: 'Minimal F-Major7', artist: 'mPlay3r Synth Demo', duration: 8, format: 'WAV', isObjectUrl: true },
+            { src: createChordWavUrl([130.81, 196, 246.94, 329.63], 8), title: 'Deep C-Major9 Test', artist: 'mPlay3r Synth Demo', duration: 8, format: 'WAV', isObjectUrl: true },
+          ],
+          true,
+        );
+      });
+
+      const headlessPlayer = document.getElementById('headless-player');
+      const readout = document.getElementById('headless-readout');
+      const renderReadout = snapshot => {
+        if (!readout || !snapshot) return;
+        const mins = String(Math.floor((snapshot.currentTime || 0) / 60)).padStart(2, '0');
+        const secs = String(Math.floor((snapshot.currentTime || 0) % 60)).padStart(2, '0');
+        const title = snapshot.currentTrack?.title ?? 'No track';
+        readout.textContent = `${snapshot.status.toUpperCase()} — ${title} (${mins}:${secs})`;
+      };
+
+      headlessPlayer?.addEventListener('mpStateChange', event => renderReadout(event.detail));
+      headlessPlayer?.addEventListener('mpTimeUpdate', async () => {
+        const snapshot = await headlessPlayer.getState?.();
+        renderReadout(snapshot);
+      });
+
+      document.getElementById('load-headless-audio')?.addEventListener('click', async () => {
+        await headlessPlayer?.addTracks(
+          [
+            { src: createChordWavUrl([261.63, 329.63, 392.0, 493.88], 6), title: 'Headless C-Major7', artist: 'mPlay3r Synth Demo', duration: 6, format: 'WAV', isObjectUrl: true },
+            { src: createChordWavUrl([196.0, 246.94, 293.66, 392.0], 6), title: 'Headless G-Major', artist: 'mPlay3r Synth Demo', duration: 6, format: 'WAV', isObjectUrl: true },
+          ],
+          true,
+        );
+      });
+    </script>
+  </body>
+</html>

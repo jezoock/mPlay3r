@@ -62,6 +62,7 @@
     "desktop:build": "npm run build && tauri build",
     "clean": "node -e \"for (const dir of ['dist', 'www', '.stencil', 'loader']) require('fs').rmSync(dir, { recursive: true, force: true })\"",
     "test": "node --import ./scripts/ts-loader.mjs --test tests/*.test.ts",
+    "check:size": "node scripts/check-size.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

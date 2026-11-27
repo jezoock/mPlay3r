@@ -27,7 +27,10 @@ export const config: Config = {
       serviceWorker: null,
       copy: [
         { src: '../dist/css', dest: 'css' },
+        { src: 'embed-demo.html', dest: 'embed-demo.html' },
         { src: 'manifest.webmanifest', dest: 'manifest.webmanifest' },
+        { src: 'icons', dest: 'icons' },
+        { src: 'sw.js', dest: 'sw.js' },
       ],
     },
     {

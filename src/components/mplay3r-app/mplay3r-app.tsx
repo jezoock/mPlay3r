@@ -30,7 +30,7 @@ import type {
   TrackInput,
 } from '../../core';
 import { getDefaultPlatformBridge } from '../../core/desktop-bridge';
-import { PluginHost } from '../../plugins';
+import { PluginHost } from '../../plugins/host';
 import type {
   InstalledPluginRecord,
   MPlay3rPlugin,
@@ -38,7 +38,7 @@ import type {
   RegisteredPluginSlot,
   RegisteredPluginTheme,
   TrackMetadataPatch,
-} from '../../plugins';
+} from '../../plugins/types';
 
 const CORE_VERSION = '0.1.0';
 let instanceCounter = 0;
@@ -77,6 +77,10 @@ export class MPlay3rApp {
   @Prop({ mutable: true, reflect: true }) showEqualizer = false;
   /** Whether the playlist drawer is open. */
   @Prop({ mutable: true, reflect: true }) showPlaylist = true;
+  /** Whether the integrated Phase 2 Plugin Store drawer is open (lazy-loaded on demand). */
+  @Prop({ mutable: true, reflect: true }) showStore = false;
+  /** Optional custom JSON registry URLs for the Plugin Store (defaults to jezoock/mPlay3r-addons). */
+  @Prop() storeRegistries?: string[];
   /** Persist volume, equalizer, palette, shuffle, and repeat in localStorage (or desktop portable storage). */
   @Prop() persist = true;
   /** Renders only slotted content so custom themes or external web apps can supply their own UI via `ds-trigger`. */
@@ -699,6 +703,15 @@ export class MPlay3rApp {
   @Method()
   async uninstallPlugin(pluginId: string): Promise<boolean> {
     return this.pluginHost.uninstall(pluginId);
+  }
+
+  /** Toggles the lazy-loaded Plugin Store drawer (controllable via `<ds-trigger action="toggleStore">`). */
+  @Method()
+  async toggleStore(): Promise<void> {
+    this.showStore = !this.showStore;
+    if (this.showStore && this.compact) {
+      this.compact = false;
+    }
   }
 
   /** Toggles or switches the active plugin panel drawer (controllable via `<ds-trigger action="togglePluginPanel">`). */
@@ -1329,6 +1342,7 @@ export class MPlay3rApp {
               palette={this.palette}
               showEqualizer={this.showEqualizer}
               showPlaylist={this.showPlaylist}
+              showStore={this.showStore}
               hasPluginPanels={panelSlots.length > 0}
               showPluginPanel={Boolean(activePanel)}
               compact={this.compact}
@@ -1375,6 +1389,16 @@ export class MPlay3rApp {
                   ref={el => this.bindSlotElement(slot, el as HTMLElement | undefined)}
                 />
               ))}
+
+            {!this.compact && this.showStore && (
+              <mp-store
+                playerTarget={targetSelector}
+                pluginHost={this.pluginHost}
+                registries={this.storeRegistries}
+                coreVersion={CORE_VERSION}
+                onMpStoreNotify={event => void this.notify(event.detail.message, event.detail.variant)}
+              />
+            )}
 
             {!this.compact && activePanel && (
               <div class="mp-plugin-drawer" role="region" aria-label={activePanel.title || 'Plugin panel'}>

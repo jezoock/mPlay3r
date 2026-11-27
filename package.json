@@ -46,6 +46,11 @@
       "types": "./dist/components/index.d.ts",
       "import": "./dist/components/index.js"
     },
+    "./plugin-sdk": {
+      "types": "./dist/types/plugins/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs.js"
+    },
     "./css/*": "./dist/css/*",
     "./dist/*": "./dist/*"
   },

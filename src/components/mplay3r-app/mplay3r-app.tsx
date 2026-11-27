@@ -30,7 +30,17 @@ import type {
   TrackInput,
 } from '../../core';
 import { getDefaultPlatformBridge } from '../../core/desktop-bridge';
+import { PluginHost } from '../../plugins';
+import type {
+  InstalledPluginRecord,
+  MPlay3rPlugin,
+  PluginDisposer,
+  RegisteredPluginSlot,
+  RegisteredPluginTheme,
+  TrackMetadataPatch,
+} from '../../plugins';
 
+const CORE_VERSION = '0.1.0';
 let instanceCounter = 0;
 
 interface ToasterRef extends HTMLElement {
@@ -93,6 +103,9 @@ export class MPlay3rApp {
   @State() isDraggingFiles = false;
   @State() desktopInfo: DesktopAppInfo = { isDesktop: false, isPortable: false };
   @State() errorMessage = '';
+  @State() pluginSlots: RegisteredPluginSlot[] = [];
+  @State() activePluginPanelKey = '';
+  @State() activePluginTheme: RegisteredPluginTheme | null = null;
 
   /** Emitted on any meaningful player state change. */
   @Event() mpStateChange!: EventEmitter<PlayerSnapshot>;
@@ -112,6 +125,10 @@ export class MPlay3rApp {
   private playerId = '';
   private engine!: AudioEngine;
   private playlist!: PlaylistStore;
+  private pluginHost!: PluginHost;
+  private unsubscribePluginHost?: PluginDisposer;
+  private mountedSlots = new Map<string, { el: HTMLElement; cleanup?: PluginDisposer }>();
+  private mountedThemeRoot?: { id: string; el: HTMLElement; cleanup?: PluginDisposer };
   private fileInputEl?: HTMLInputElement;
   private folderInputEl?: HTMLInputElement;
   private playlistInputEl?: HTMLInputElement;
@@ -127,6 +144,7 @@ export class MPlay3rApp {
       return;
     }
     this.mpPaletteChange.emit({ palette: next });
+    this.pluginHost?.emitPlayerEvent('paletteChange', { palette: next });
     this.schedulePersist();
   }
 
@@ -160,11 +178,13 @@ export class MPlay3rApp {
         this.currentTime = currentTime;
         this.duration = duration;
         this.buffered = buffered;
-        this.mpTimeUpdate.emit({
+        const payload = {
           currentTime,
           duration,
           remaining: Math.max(0, duration - currentTime),
-        });
+        };
+        this.mpTimeUpdate.emit(payload);
+        this.pluginHost?.emitPlayerEvent('timeUpdate', payload);
       },
       onDurationChange: duration => {
         this.duration = duration;
@@ -180,9 +200,37 @@ export class MPlay3rApp {
       onError: message => {
         this.errorMessage = message;
         this.mpError.emit({ message });
+        this.pluginHost?.emitPlayerEvent('error', { message });
         void this.notify(message, 'error');
       },
     });
+
+    this.pluginHost = new PluginHost({
+      coreVersion: CORE_VERSION,
+      getPlayerTarget: () => `#${this.playerId}`,
+      getState: () => this.createSnapshot(),
+      playback: {
+        play: () => this.play(),
+        pause: () => this.pause(),
+        togglePlay: () => this.togglePlay(),
+        stop: () => this.stop(),
+        next: () => this.next(),
+        previous: () => this.previous(),
+        seek: seconds => this.seek(seconds),
+        setVolume: volume => this.setVolume(volume),
+        getStatus: () => this.status,
+      },
+      playlist: {
+        addTracks: (inputs, autoplayIfEmpty = false) => this.addTracks(inputs, autoplayIfEmpty),
+        removeTrack: id => this.removeTrack(id),
+        clearPlaylist: () => this.clearPlaylist(),
+      },
+      updateTrackMetadata: (trackId, patch) => this.updateTrackMetadata(trackId, patch),
+      getAudioAnalyser: () => this.getAudioAnalyser(),
+      getAudioContext: () => this.getAudioContext(),
+      notify: (message, variant) => this.notify(message, variant),
+    });
+    this.unsubscribePluginHost = this.pluginHost.subscribe(() => this.syncPluginViews());
 
     if (this.persist) {
       await this.restorePersistedState();
@@ -205,6 +253,9 @@ export class MPlay3rApp {
 
   disconnectedCallback() {
     clearTimeout(this.persistTimer);
+    this.teardownAllSlots();
+    this.unsubscribePluginHost?.();
+    void this.pluginHost?.destroy();
     this.engine?.destroy();
     this.playlist?.clear();
   }
@@ -325,7 +376,7 @@ export class MPlay3rApp {
       return;
     }
     this.syncPlaylistView();
-    this.mpTrackChange.emit({ track, index: this.currentIndex });
+    this.emitTrackChange(track, this.currentIndex);
     this.currentTime = 0;
     this.duration = track.duration ?? 0;
     await this.engine.play(track.src);
@@ -344,7 +395,7 @@ export class MPlay3rApp {
     if (wasEmpty) {
       const first = this.playlist.getCurrentTrack();
       if (first) {
-        this.mpTrackChange.emit({ track: first, index: 0 });
+        this.emitTrackChange(first, 0);
         if (autoplayIfEmpty) {
           await this.engine.play(first.src);
           this.updateMediaSessionMetadata(first);
@@ -483,7 +534,7 @@ export class MPlay3rApp {
     this.schedulePersist();
 
     if (wasCurrent) {
-      this.mpTrackChange.emit({ track: nextTrack, index: this.currentIndex });
+      this.emitTrackChange(nextTrack, this.currentIndex);
       if (!nextTrack) {
         await this.stop();
         this.duration = 0;
@@ -512,7 +563,7 @@ export class MPlay3rApp {
     this.duration = 0;
     this.filterQuery = '';
     this.syncPlaylistView();
-    this.mpTrackChange.emit({ track: null, index: -1 });
+    this.emitTrackChange(null, -1);
     this.schedulePersist();
   }
 
@@ -524,7 +575,7 @@ export class MPlay3rApp {
   @Method()
   async setEqualizerEnabled(enabled: boolean): Promise<void> {
     this.equalizer = this.engine.setEqualizerEnabled(enabled);
-    this.mpEqChange.emit(this.equalizer);
+    this.emitEqChange();
     this.schedulePersist();
     this.emitState();
   }
@@ -532,7 +583,7 @@ export class MPlay3rApp {
   @Method()
   async setEqBand(index: number, gain: number): Promise<void> {
     this.equalizer = this.engine.setEqBand(Number(index), Number(gain));
-    this.mpEqChange.emit(this.equalizer);
+    this.emitEqChange();
     this.schedulePersist();
     this.emitState();
   }
@@ -540,7 +591,7 @@ export class MPlay3rApp {
   @Method()
   async setPreamp(gain: number): Promise<void> {
     this.equalizer = this.engine.setPreamp(Number(gain));
-    this.mpEqChange.emit(this.equalizer);
+    this.emitEqChange();
     this.schedulePersist();
     this.emitState();
   }
@@ -548,7 +599,7 @@ export class MPlay3rApp {
   @Method()
   async applyEqPreset(presetId: string): Promise<void> {
     this.equalizer = this.engine.applyEqPreset(presetId);
-    this.mpEqChange.emit(this.equalizer);
+    this.emitEqChange();
     this.schedulePersist();
     this.emitState();
   }
@@ -556,7 +607,7 @@ export class MPlay3rApp {
   @Method()
   async resetEqualizer(): Promise<void> {
     this.equalizer = this.engine.resetEqualizer();
-    this.mpEqChange.emit(this.equalizer);
+    this.emitEqChange();
     this.schedulePersist();
     this.emitState();
   }
@@ -618,6 +669,77 @@ export class MPlay3rApp {
   @Method()
   async getAudioContext(): Promise<AudioContext | null> {
     return this.engine.getAudioContext();
+  }
+
+  /** Returns the sandboxed Phase 2 PluginHost instance bound to this player. */
+  @Method()
+  async getPluginHost(): Promise<PluginHost> {
+    return this.pluginHost;
+  }
+
+  /** Installs (and optionally activates) a plugin into this player's sandboxed PluginHost. */
+  @Method()
+  async registerPlugin(plugin: MPlay3rPlugin, enable?: boolean): Promise<InstalledPluginRecord> {
+    return this.pluginHost.install(plugin, enable !== undefined ? { enable } : {});
+  }
+
+  /** Activates an installed plugin by id. */
+  @Method()
+  async enablePlugin(pluginId: string): Promise<InstalledPluginRecord> {
+    return this.pluginHost.enable(pluginId);
+  }
+
+  /** Deactivates an active plugin by id and cleans up all its listeners, slots, themes, and providers. */
+  @Method()
+  async disablePlugin(pluginId: string): Promise<InstalledPluginRecord> {
+    return this.pluginHost.disable(pluginId);
+  }
+
+  /** Uninstalls a plugin by id. */
+  @Method()
+  async uninstallPlugin(pluginId: string): Promise<boolean> {
+    return this.pluginHost.uninstall(pluginId);
+  }
+
+  /** Toggles or switches the active plugin panel drawer (controllable via `<ds-trigger action="togglePluginPanel">`). */
+  @Method()
+  async togglePluginPanel(panelKeyOrPluginId?: string): Promise<void> {
+    const panelSlots = this.pluginSlots.filter(s => s.slot === 'panel');
+    if (panelSlots.length === 0) {
+      this.activePluginPanelKey = '';
+      return;
+    }
+
+    if (panelKeyOrPluginId) {
+      const target = panelSlots.find(s => s.key === panelKeyOrPluginId || s.pluginId === panelKeyOrPluginId);
+      if (!target) {
+        return;
+      }
+      this.activePluginPanelKey = this.activePluginPanelKey === target.key ? '' : target.key;
+    } else {
+      this.activePluginPanelKey = this.activePluginPanelKey ? '' : panelSlots[0].key;
+    }
+
+    if (this.activePluginPanelKey && this.compact) {
+      this.compact = false;
+    }
+  }
+
+  /** Updates metadata of a track in the playlist (used by Radio ICY & Scraper plugins). */
+  @Method()
+  async updateTrackMetadata(trackId: string, patch: TrackMetadataPatch): Promise<boolean> {
+    const existing = this.playlist.getTracks().find(t => t.id === trackId);
+    if (!existing) {
+      return false;
+    }
+    this.playlist.updateTrackMeta(trackId, patch);
+    this.syncPlaylistView();
+    const current = this.playlist.getCurrentTrack();
+    if (current && current.id === trackId) {
+      this.updateMediaSessionMetadata(current);
+      this.emitTrackChange(current, this.currentIndex);
+    }
+    return true;
   }
 
   //#endregion
@@ -758,7 +880,7 @@ export class MPlay3rApp {
       return;
     }
     if (result.action === 'play' && result.track) {
-      this.mpTrackChange.emit({ track: result.track, index: result.index });
+      this.emitTrackChange(result.track, result.index);
       this.currentTime = 0;
       this.duration = result.track.duration ?? 0;
       await this.engine.play(result.track.src);
@@ -787,7 +909,7 @@ export class MPlay3rApp {
       const first = this.playlist.getCurrentTrack();
       if (first) {
         this.engine.loadSource(first.src);
-        this.mpTrackChange.emit({ track: first, index: 0 });
+        this.emitTrackChange(first, 0);
       }
     }
   }
@@ -883,7 +1005,9 @@ export class MPlay3rApp {
   private syncPlaylistView(): void {
     this.trackList = this.playlist.getTracks();
     this.currentIndex = this.playlist.getCurrentIndex();
-    this.mpPlaylistChange.emit({ tracks: this.trackList, currentIndex: this.currentIndex });
+    const payload = { tracks: this.trackList, currentIndex: this.currentIndex };
+    this.mpPlaylistChange.emit(payload);
+    this.pluginHost?.emitPlayerEvent('playlistChange', payload);
     this.emitState();
   }
 
@@ -912,7 +1036,163 @@ export class MPlay3rApp {
   }
 
   private emitState(): void {
-    this.mpStateChange.emit(this.createSnapshot());
+    const snapshot = this.createSnapshot();
+    this.mpStateChange.emit(snapshot);
+    this.pluginHost?.emitPlayerEvent('stateChange', snapshot);
+  }
+
+  private emitTrackChange(track: Track | null, index: number): void {
+    const payload = { track, index };
+    this.mpTrackChange.emit(payload);
+    this.pluginHost?.emitPlayerEvent('trackChange', payload);
+  }
+
+  private emitEqChange(): void {
+    this.mpEqChange.emit(this.equalizer);
+    this.pluginHost?.emitPlayerEvent('eqChange', this.equalizer);
+  }
+
+  private syncPluginViews(): void {
+    const slots = this.pluginHost.getSlots();
+    const activeKeys = new Set(slots.map(s => s.key));
+    for (const [key, mounted] of Array.from(this.mountedSlots.entries())) {
+      if (!activeKeys.has(key)) {
+        try {
+          mounted.cleanup?.();
+        } catch {
+          // Isolate plugin cleanup failures.
+        }
+        this.mountedSlots.delete(key);
+      }
+    }
+
+    this.pluginSlots = slots;
+    const panelSlots = slots.filter(s => s.slot === 'panel');
+    if (this.activePluginPanelKey && !panelSlots.some(s => s.key === this.activePluginPanelKey)) {
+      this.activePluginPanelKey = panelSlots[0]?.key ?? '';
+    }
+
+    const nextTheme = this.pluginHost.getActiveTheme();
+    if (this.mountedThemeRoot && (!nextTheme || nextTheme.id !== this.mountedThemeRoot.id)) {
+      try {
+        this.mountedThemeRoot.cleanup?.();
+      } catch {
+        // Isolate theme teardown failures.
+      }
+      this.mountedThemeRoot = undefined;
+    }
+    this.activePluginTheme = nextTheme;
+  }
+
+  private bindSlotElement(slot: RegisteredPluginSlot, el: HTMLElement | undefined): void {
+    const existing = this.mountedSlots.get(slot.key);
+    if (!el) {
+      if (existing) {
+        try {
+          existing.cleanup?.();
+        } catch {
+          // Isolate cleanup errors.
+        }
+        this.mountedSlots.delete(slot.key);
+      }
+      return;
+    }
+    if (existing && existing.el === el) {
+      return;
+    }
+    if (existing) {
+      try {
+        existing.cleanup?.();
+      } catch {
+        // Isolate cleanup errors.
+      }
+    }
+    const record: { el: HTMLElement; cleanup?: PluginDisposer } = { el };
+    this.mountedSlots.set(slot.key, record);
+    try {
+      const maybeDisposer = slot.mount(el, `#${this.playerId}`);
+      void Promise.resolve(maybeDisposer)
+        .then(cleanup => {
+          if (typeof cleanup === 'function') {
+            if (this.mountedSlots.get(slot.key) === record) {
+              record.cleanup = cleanup;
+            } else {
+              cleanup();
+            }
+          }
+        })
+        .catch(() => {
+          // Isolate asynchronous slot mount failures.
+        });
+    } catch {
+      // Isolate synchronous slot mount failures.
+    }
+  }
+
+  private bindThemeRootElement(theme: RegisteredPluginTheme, el: HTMLElement | undefined): void {
+    if (!el) {
+      if (this.mountedThemeRoot) {
+        try {
+          this.mountedThemeRoot.cleanup?.();
+        } catch {
+          // Isolate cleanup errors.
+        }
+        this.mountedThemeRoot = undefined;
+      }
+      return;
+    }
+    if (this.mountedThemeRoot && this.mountedThemeRoot.id === theme.id && this.mountedThemeRoot.el === el) {
+      return;
+    }
+    if (this.mountedThemeRoot) {
+      try {
+        this.mountedThemeRoot.cleanup?.();
+      } catch {
+        // Isolate cleanup errors.
+      }
+    }
+    const record: { id: string; el: HTMLElement; cleanup?: PluginDisposer } = { id: theme.id, el };
+    this.mountedThemeRoot = record;
+    if (!theme.mountLayout) {
+      return;
+    }
+    try {
+      const maybeDisposer = theme.mountLayout(el, `#${this.playerId}`);
+      void Promise.resolve(maybeDisposer)
+        .then(cleanup => {
+          if (typeof cleanup === 'function') {
+            if (this.mountedThemeRoot === record) {
+              record.cleanup = cleanup;
+            } else {
+              cleanup();
+            }
+          }
+        })
+        .catch(() => {
+          // Isolate theme mount errors.
+        });
+    } catch {
+      // Isolate theme mount errors.
+    }
+  }
+
+  private teardownAllSlots(): void {
+    for (const mounted of this.mountedSlots.values()) {
+      try {
+        mounted.cleanup?.();
+      } catch {
+        // Ignore teardown errors.
+      }
+    }
+    this.mountedSlots.clear();
+    if (this.mountedThemeRoot) {
+      try {
+        this.mountedThemeRoot.cleanup?.();
+      } catch {
+        // Ignore teardown errors.
+      }
+      this.mountedThemeRoot = undefined;
+    }
   }
 
   private async notify(message: string, variant: '' | 'success' | 'warning' | 'error' = ''): Promise<void> {
@@ -974,6 +1254,12 @@ export class MPlay3rApp {
     const targetSelector = `#${this.playerId}`;
     const currentTrack = this.currentIndex >= 0 ? (this.trackList[this.currentIndex] ?? null) : null;
     const filteredTracks = this.playlist ? this.playlist.getFilteredTracks(this.filterQuery) : [];
+    const visualizerSlots = this.pluginSlots.filter(s => s.slot === 'visualizer');
+    const trackInfoSlots = this.pluginSlots.filter(s => s.slot === 'track-info');
+    const panelSlots = this.pluginSlots.filter(s => s.slot === 'panel');
+    const activePanel = panelSlots.find(s => s.key === this.activePluginPanelKey) ?? null;
+    const activeTheme = this.activePluginTheme;
+    const customThemeLayout = Boolean(activeTheme?.mountLayout);
 
     return (
       <Host
@@ -981,7 +1267,7 @@ export class MPlay3rApp {
           'mp-app': true,
           '--compact': this.compact,
           '--dragging': this.isDraggingFiles,
-          '--headless': this.headless,
+          '--headless': this.headless || customThemeLayout,
           [`--status-${this.status}`]: true,
         }}
         data-mp-palette={this.palette}
@@ -991,6 +1277,8 @@ export class MPlay3rApp {
         onDragLeave={this.handleDragLeave}
         onDrop={this.handleDrop}
       >
+        {activeTheme?.css && <style data-mp-plugin-theme={activeTheme.id}>{activeTheme.css}</style>}
+
         {/* Hidden native file inputs for Web / Embed mode (Desktop uses PlatformBridge dialogs). */}
         <input
           class="ds-visually-hidden"
@@ -1028,6 +1316,12 @@ export class MPlay3rApp {
 
         {this.headless ? (
           <slot />
+        ) : customThemeLayout && activeTheme ? (
+          <div
+            class="mp-slot --theme-root"
+            key={`theme:${activeTheme.id}`}
+            ref={el => this.bindThemeRootElement(activeTheme, el as HTMLElement | undefined)}
+          />
         ) : (
           <div class="mp-app__shell" role="region" aria-label="mPlay3r audio player">
             <mp-header
@@ -1035,9 +1329,21 @@ export class MPlay3rApp {
               palette={this.palette}
               showEqualizer={this.showEqualizer}
               showPlaylist={this.showPlaylist}
+              hasPluginPanels={panelSlots.length > 0}
+              showPluginPanel={Boolean(activePanel)}
               compact={this.compact}
               isPortable={this.desktopInfo.isPortable}
             />
+
+            {!this.compact &&
+              visualizerSlots.map(slot => (
+                <div
+                  class="mp-slot --visualizer"
+                  key={slot.key}
+                  data-mp-slot={slot.key}
+                  ref={el => this.bindSlotElement(slot, el as HTMLElement | undefined)}
+                />
+              ))}
 
             <mp-transport
               playerTarget={targetSelector}
@@ -1059,6 +1365,46 @@ export class MPlay3rApp {
               onMpVolumeChange={event => void this.setVolume(event.detail)}
               onMpBalanceChange={event => void this.setBalance(event.detail)}
             />
+
+            {!this.compact &&
+              trackInfoSlots.map(slot => (
+                <div
+                  class="mp-slot --track-info"
+                  key={slot.key}
+                  data-mp-slot={slot.key}
+                  ref={el => this.bindSlotElement(slot, el as HTMLElement | undefined)}
+                />
+              ))}
+
+            {!this.compact && activePanel && (
+              <div class="mp-plugin-drawer" role="region" aria-label={activePanel.title || 'Plugin panel'}>
+                {panelSlots.length > 1 && (
+                  <div class="mp-plugin-drawer__tabs" role="tablist">
+                    {panelSlots.map(slot => {
+                      const selected = slot.key === activePanel.key;
+                      return (
+                        <ds-trigger
+                          key={slot.key}
+                          mods={selected ? 'mp-pill,active' : 'mp-pill'}
+                          target={targetSelector}
+                          action={`togglePluginPanel:${JSON.stringify([slot.key])}`}
+                          label={slot.title || slot.id}
+                          aria-pressed={selected ? 'true' : 'false'}
+                        >
+                          <span>{slot.title || slot.id}</span>
+                        </ds-trigger>
+                      );
+                    })}
+                  </div>
+                )}
+                <div
+                  class="mp-slot --panel"
+                  key={activePanel.key}
+                  data-mp-slot={activePanel.key}
+                  ref={el => this.bindSlotElement(activePanel, el as HTMLElement | undefined)}
+                />
+              </div>
+            )}
 
             {!this.compact && this.showEqualizer && (
               <mp-equalizer

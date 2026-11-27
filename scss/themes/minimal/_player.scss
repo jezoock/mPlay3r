@@ -1,0 +1,534 @@
+@use './tokens' as *;
+
+// Scoped minimalist skin for mPlay3r. Never clobbers host page body/headings so the player
+// embeds cleanly into any external web application.
+
+.ds-visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  clip-path: inset(50%) !important;
+  border: 0 !important;
+  white-space: nowrap !important;
+}
+
+.mp-app {
+  font-family: ds-font-family(page);
+  font-size: ds-token(font-size, 100);
+  line-height: 1.4;
+  color: var(--mp-text);
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  :focus-visible {
+    @include ds-focus-ring();
+  }
+
+  // Scoped overrides for dot-stash components inside the player shell.
+  ds-range {
+    --ds-range-thumb-size: 0.875rem;
+    --ds-range-track-height: 0.25rem;
+    --ds-range-track-color: var(--mp-border);
+    --ds-range-buffer-color: var(--ds-color-gray-base);
+    --ds-range-fill-color: var(--ds-color-primary-base);
+    --ds-range-thumb-color: var(--mp-text);
+    --ds-range-thumb-border-color: var(--ds-color-primary-base);
+  }
+
+  ds-select {
+    --ds-select-background: var(--mp-surface-alt);
+    --ds-select-border-color: var(--mp-border);
+    --ds-select-padding: #{ds-spacing(1) ds-spacing(6) ds-spacing(1) ds-spacing(2)};
+    --ds-select-radius: #{ds-radius(sm)};
+
+    color: var(--mp-text);
+    font-size: 0.8125rem;
+  }
+
+  ds-badge {
+    --ds-badge-background: var(--mp-surface-alt);
+    --ds-badge-color: var(--mp-text-muted);
+    --ds-badge-font-size: 0.6875rem;
+    --ds-badge-padding: 0.05rem 0.45rem;
+  }
+
+  ds-tooltip {
+    --ds-tooltip-background: var(--mp-surface-alt);
+    --ds-tooltip-color: var(--mp-text);
+    --ds-tooltip-width: max-content;
+    --ds-tooltip-padding: 0.25rem 0.5rem;
+    --ds-tooltip-font-size: 0.75rem;
+    --ds-tooltip-offset: 6px;
+  }
+
+  ds-toaster {
+    --ds-toaster-background: var(--mp-surface);
+    --ds-toaster-color: var(--mp-text);
+    --ds-toaster-padding: 0.65rem 1rem;
+    --ds-toaster-min-width: 14rem;
+    --ds-toaster-font-size: 0.8125rem;
+  }
+
+  ds-sortable {
+    --ds-sortable-gap: 0.25rem;
+    --ds-sortable-item-padding: 0.35rem 0.5rem;
+    --ds-sortable-item-background: transparent;
+    --ds-sortable-item-border-color: transparent;
+    --ds-sortable-item-radius: #{ds-radius(sm)};
+    --ds-sortable-grabbed-background: var(--mp-accent-soft);
+    --ds-sortable-grabbed-border-color: var(--ds-color-primary-base);
+    --ds-sortable-button-size: 1.5rem;
+  }
+
+  &__shell {
+    background-color: var(--mp-bg);
+    border: 1px solid var(--mp-border);
+    border-radius: ds-radius(lg);
+    box-shadow: 0 12px 32px var(--ds-color-shadow-base);
+  }
+
+  &__drop-overlay {
+    background-color: var(--mp-bg);
+    opacity: 0.94;
+    border: 2px dashed var(--ds-color-primary-base);
+    border-radius: ds-radius(lg);
+    color: var(--ds-color-primary-base);
+    font-weight: 600;
+    font-size: 0.9375rem;
+
+    ds-icon {
+      --ds-icon-size: 2rem;
+    }
+  }
+}
+
+// Reusable ds-trigger button modifiers inside mPlay3r.
+.mp-app .ds-control {
+  &.--mp-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: ds-radius(sm);
+    color: var(--mp-text-muted);
+    cursor: pointer;
+    transition:
+      color 0.15s ease,
+      background-color 0.15s ease;
+
+    &:hover:not([aria-disabled='true']) {
+      color: var(--mp-text);
+      background-color: var(--mp-surface-alt);
+    }
+
+    &.--active {
+      color: var(--ds-color-primary-base);
+      background-color: var(--mp-accent-soft);
+    }
+
+    &.--muted {
+      color: var(--ds-color-status-error);
+    }
+
+    &[aria-disabled='true'] {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+  }
+
+  &.--mp-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.25rem 0.55rem;
+    border: 1px solid var(--mp-border);
+    border-radius: ds-radius(pill);
+    background-color: transparent;
+    color: var(--mp-text-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition:
+      color 0.15s ease,
+      border-color 0.15s ease,
+      background-color 0.15s ease;
+
+    &:hover:not([aria-disabled='true']) {
+      color: var(--mp-text);
+      border-color: var(--ds-color-gray-base);
+    }
+
+    &.--active {
+      color: var(--ds-color-primary-base);
+      border-color: var(--ds-color-primary-base);
+      background-color: var(--mp-accent-soft);
+    }
+  }
+
+  &.--mp-swatch {
+    width: 1.05rem;
+    height: 1.05rem;
+    border-radius: ds-radius(circle);
+    border: 2px solid var(--mp-border);
+    background: linear-gradient(135deg, var(--mp-swatch-bg) 50%, var(--mp-swatch-accent) 50%);
+    cursor: pointer;
+    transition:
+      transform 0.15s ease,
+      border-color 0.15s ease;
+
+    &:hover {
+      transform: scale(1.15);
+    }
+
+    &.--active {
+      border-color: var(--ds-color-primary-base);
+      box-shadow: 0 0 0 2px var(--mp-accent-soft);
+    }
+  }
+
+  &.--mp-clock {
+    padding: 0.25rem 0.5rem;
+    border-radius: ds-radius(sm);
+    background-color: var(--mp-surface-alt);
+    font-family: ds-token(font-family, mono);
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.15s ease;
+
+    &:hover {
+      background-color: var(--mp-border);
+    }
+  }
+
+  &.--mp-bal-label {
+    padding: 0.15rem 0.35rem;
+    border-radius: ds-radius(sm);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    color: var(--mp-text-muted);
+    cursor: pointer;
+
+    &:hover {
+      color: var(--mp-text);
+      background-color: var(--mp-surface-alt);
+    }
+  }
+}
+
+.mp-app .ds-button.--mp-play {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  --ds-trigger-color: var(--mp-accent-contrast);
+  --ds-trigger-background: var(--ds-color-primary-base);
+  --ds-trigger-border-color: var(--ds-color-primary-base);
+
+  ds-icon {
+    --ds-icon-size: 1.125rem;
+  }
+
+  &:not([disabled]):hover {
+    --ds-trigger-color: var(--mp-accent-contrast);
+    --ds-trigger-background: var(--ds-color-primary-dark);
+    --ds-trigger-border-color: var(--ds-color-primary-dark);
+  }
+}
+
+// Header bar
+.mp-header {
+  padding: 0.65rem 1rem;
+  background-color: var(--mp-surface);
+  border-bottom: 1px solid var(--mp-border);
+
+  &__logo {
+    color: var(--ds-color-primary-base);
+  }
+
+  &__title {
+    font-weight: 700;
+    font-size: 0.875rem;
+    letter-spacing: 0.04em;
+    color: var(--mp-text);
+  }
+}
+
+// Transport deck
+.mp-transport {
+  padding: 1rem;
+  background-color: var(--mp-bg);
+
+  &__title {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--mp-text);
+  }
+
+  &__artist {
+    font-size: 0.8125rem;
+    color: var(--mp-text-muted);
+  }
+
+  &__counter {
+    font-family: ds-token(font-family, mono);
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--mp-text-muted);
+  }
+
+  &__time {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--mp-text);
+  }
+
+  &__duration {
+    font-size: 0.75rem;
+    color: var(--mp-text-muted);
+  }
+
+  &.--compact {
+    padding: 0.75rem 1rem;
+  }
+}
+
+.mp-status-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: ds-radius(circle);
+  background-color: var(--mp-border);
+  flex-shrink: 0;
+  transition: background-color 0.2s ease;
+
+  &.--playing {
+    background-color: var(--ds-color-primary-base);
+    box-shadow: 0 0 0 3px var(--mp-accent-soft);
+  }
+
+  &.--paused {
+    background-color: var(--ds-color-status-warning);
+  }
+}
+
+// Compact & vertical ds-range variants
+.mp-app .ds-range {
+  &.--compact {
+    --ds-range-thumb-size: 0.75rem;
+    --ds-range-track-height: 0.2rem;
+  }
+
+  &.--vertical {
+    --ds-range-thumb-size: 0.8rem;
+    --ds-range-track-height: 0.22rem;
+  }
+}
+
+// Equalizer panel
+.mp-equalizer {
+  padding: 0.9rem 1rem;
+  background-color: var(--mp-surface);
+  border-top: 1px solid var(--mp-border);
+
+  &__heading {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--mp-text);
+  }
+
+  &__curve {
+    background-color: var(--mp-bg);
+    border: 1px solid var(--mp-border);
+    border-radius: ds-radius(sm);
+  }
+
+  &__zero-line {
+    stroke: var(--mp-border);
+    stroke-width: 1;
+    stroke-dasharray: 3 3;
+  }
+
+  &__curve-line {
+    fill: none;
+    stroke: var(--ds-color-primary-base);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  &__scale {
+    font-family: ds-token(font-family, mono);
+    font-size: 0.625rem;
+    color: var(--mp-text-muted);
+    text-align: right;
+  }
+
+  &__value {
+    font-family: ds-token(font-family, mono);
+    font-size: 0.625rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--mp-text-muted);
+  }
+
+  &__band-label {
+    font-family: ds-token(font-family, mono);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--mp-text);
+  }
+
+  &__divider {
+    background-color: var(--mp-border);
+  }
+
+  &.--bypassed {
+    .mp-equalizer__grid,
+    .mp-equalizer__curve {
+      opacity: 0.45;
+    }
+  }
+}
+
+// Playlist panel
+.mp-playlist {
+  padding: 0.9rem 1rem;
+  background-color: var(--mp-surface);
+  border-top: 1px solid var(--mp-border);
+
+  &__heading {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--mp-text);
+  }
+
+  &__total {
+    font-family: ds-token(font-family, mono);
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--mp-text-muted);
+  }
+
+  &__search-icon {
+    color: var(--mp-text-muted);
+    --ds-icon-size: 0.875rem;
+  }
+
+  &__search-input {
+    border: 1px solid var(--mp-border);
+    border-radius: ds-radius(sm);
+    background-color: var(--mp-bg);
+    color: var(--mp-text);
+    font-size: 0.8125rem;
+
+    &::placeholder {
+      color: var(--mp-text-muted);
+    }
+  }
+
+  &__empty-text {
+    margin: 0;
+    font-size: 0.8125rem;
+    color: var(--mp-text-muted);
+  }
+}
+
+.mp-track {
+  border-radius: ds-radius(sm);
+  transition: background-color 0.12s ease;
+
+  &:hover {
+    background-color: var(--mp-surface-alt);
+  }
+
+  &.--active {
+    background-color: var(--mp-accent-soft);
+
+    .mp-track__index,
+    .mp-track__title {
+      color: var(--ds-color-primary-base);
+    }
+  }
+
+  > .--mp-track-main {
+    cursor: pointer;
+    text-align: left;
+  }
+
+  &__index {
+    font-family: ds-token(font-family, mono);
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--mp-text-muted);
+  }
+
+  &__title {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--mp-text);
+  }
+
+  &__artist {
+    font-size: 0.75rem;
+    color: var(--mp-text-muted);
+  }
+
+  &__duration {
+    font-family: ds-token(font-family, mono);
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--mp-text-muted);
+  }
+
+  > .--mp-track-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: ds-radius(sm);
+    color: var(--mp-text-muted);
+    opacity: 0.6;
+    cursor: pointer;
+
+    &:hover {
+      opacity: 1;
+      color: var(--ds-color-status-error);
+      background-color: var(--mp-surface-alt);
+    }
+  }
+}
+
+.mp-app .ds-sortable__move {
+  border-color: var(--mp-border);
+  background-color: var(--mp-surface);
+  color: var(--mp-text-muted);
+
+  &:hover:not(:disabled) {
+    color: var(--mp-text);
+    border-color: var(--ds-color-gray-base);
+  }
+}
+
+@include ds-reduced-motion() {
+  .mp-app,
+  .mp-app * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

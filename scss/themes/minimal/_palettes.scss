@@ -1,0 +1,181 @@
+@use './tokens' as *;
+
+// Five curated minimalist color schemes for mPlay3r.
+// Each palette overrides dot-stash color tokens inside its `[data-mp-palette='...']` scope
+// and redeclares derived colorset & focus tokens via `@include ds-tokens(colorset, focus)`
+// so multiple embedded `<mplay3r-app>` instances can run different palettes on the same page.
+
+// 1. Obsidian — Deep carbon dark studio (default)
+[data-mp-palette='obsidian'] {
+  --ds-color-primary-darker: #0369a1;
+  --ds-color-primary-dark: #0284c7;
+  --ds-color-primary-base: #38bdf8;
+  --ds-color-primary-light: #0c2d42;
+  --ds-color-secondary-darker: #090c10;
+  --ds-color-secondary-dark: #161b22;
+  --ds-color-secondary-base: #30363d;
+  --ds-color-secondary-light: #8b949e;
+  --ds-color-gray-white: #0e1116;
+  --ds-color-gray-lightest: #161b22;
+  --ds-color-gray-lighter: #1f2630;
+  --ds-color-gray-light: #2b3440;
+  --ds-color-gray-base: #485466;
+  --ds-color-gray-dark: #8b949e;
+  --ds-color-gray-darker: #c9d1d9;
+  --ds-color-gray-darkest: #f0f6fc;
+  --ds-color-shadow-base: rgb(0 0 0 / 45%);
+  --ds-color-input-track: #2b3440;
+  --ds-color-input-knob: #8b949e;
+  --ds-color-input-knob-checked: #38bdf8;
+
+  --mp-bg: #0e1116;
+  --mp-surface: #161b22;
+  --mp-surface-alt: #1c232d;
+  --mp-border: #2b3440;
+  --mp-text: #f0f6fc;
+  --mp-text-muted: #8b949e;
+  --mp-accent-contrast: #06131c;
+  --mp-accent-soft: rgb(56 189 248 / 14%);
+
+  @include ds-tokens(colorset, focus);
+}
+
+// 2. Slate — Clean minimalist daylight studio
+[data-mp-palette='slate'] {
+  --ds-color-primary-darker: #1e3a8a;
+  --ds-color-primary-dark: #1d4ed8;
+  --ds-color-primary-base: #2563eb;
+  --ds-color-primary-light: #dbeafe;
+  --ds-color-secondary-darker: #0f172a;
+  --ds-color-secondary-dark: #1e293b;
+  --ds-color-secondary-base: #334155;
+  --ds-color-secondary-light: #94a3b8;
+  --ds-color-gray-white: #ffffff;
+  --ds-color-gray-lightest: #f8fafc;
+  --ds-color-gray-lighter: #f1f5f9;
+  --ds-color-gray-light: #e2e8f0;
+  --ds-color-gray-base: #cbd5e1;
+  --ds-color-gray-dark: #64748b;
+  --ds-color-gray-darker: #334155;
+  --ds-color-gray-darkest: #0f172a;
+  --ds-color-shadow-base: rgb(15 23 42 / 12%);
+  --ds-color-input-track: #cbd5e1;
+  --ds-color-input-knob: #64748b;
+  --ds-color-input-knob-checked: #2563eb;
+
+  --mp-bg: #ffffff;
+  --mp-surface: #f8fafc;
+  --mp-surface-alt: #f1f5f9;
+  --mp-border: #e2e8f0;
+  --mp-text: #0f172a;
+  --mp-text-muted: #64748b;
+  --mp-accent-contrast: #ffffff;
+  --mp-accent-soft: rgb(37 99 235 / 11%);
+
+  @include ds-tokens(colorset, focus);
+}
+
+// 3. Amber — Warm minimalist Hi-Fi / classic Winamp gold nod
+[data-mp-palette='amber'] {
+  --ds-color-primary-darker: #92400e;
+  --ds-color-primary-dark: #d97706;
+  --ds-color-primary-base: #f59e0b;
+  --ds-color-primary-light: #3b2606;
+  --ds-color-secondary-darker: #0e0c0a;
+  --ds-color-secondary-dark: #1c1917;
+  --ds-color-secondary-base: #332e2a;
+  --ds-color-secondary-light: #a8a29e;
+  --ds-color-gray-white: #141210;
+  --ds-color-gray-lightest: #1c1917;
+  --ds-color-gray-lighter: #26221f;
+  --ds-color-gray-light: #352f2b;
+  --ds-color-gray-base: #57534e;
+  --ds-color-gray-dark: #a8a29e;
+  --ds-color-gray-darker: #d6d3d1;
+  --ds-color-gray-darkest: #fafaf9;
+  --ds-color-shadow-base: rgb(0 0 0 / 50%);
+  --ds-color-input-track: #352f2b;
+  --ds-color-input-knob: #a8a29e;
+  --ds-color-input-knob-checked: #f59e0b;
+
+  --mp-bg: #141210;
+  --mp-surface: #1c1917;
+  --mp-surface-alt: #25211e;
+  --mp-border: #352f2b;
+  --mp-text: #fafaf9;
+  --mp-text-muted: #a8a29e;
+  --mp-accent-contrast: #141210;
+  --mp-accent-soft: rgb(245 158 11 / 15%);
+
+  @include ds-tokens(colorset, focus);
+}
+
+// 4. Emerald — Precision dark audio monitor
+[data-mp-palette='emerald'] {
+  --ds-color-primary-darker: #065f46;
+  --ds-color-primary-dark: #059669;
+  --ds-color-primary-base: #10b981;
+  --ds-color-primary-light: #063527;
+  --ds-color-secondary-darker: #070e0c;
+  --ds-color-secondary-dark: #111f1a;
+  --ds-color-secondary-base: #1e352d;
+  --ds-color-secondary-light: #86a79b;
+  --ds-color-gray-white: #0b1411;
+  --ds-color-gray-lightest: #111f1a;
+  --ds-color-gray-lighter: #182b24;
+  --ds-color-gray-light: #223c33;
+  --ds-color-gray-base: #3b5c50;
+  --ds-color-gray-dark: #86a79b;
+  --ds-color-gray-darker: #c8ded6;
+  --ds-color-gray-darkest: #ecfdf5;
+  --ds-color-shadow-base: rgb(0 0 0 / 48%);
+  --ds-color-input-track: #223c33;
+  --ds-color-input-knob: #86a79b;
+  --ds-color-input-knob-checked: #10b981;
+
+  --mp-bg: #0b1411;
+  --mp-surface: #111f1a;
+  --mp-surface-alt: #172a23;
+  --mp-border: #223c33;
+  --mp-text: #ecfdf5;
+  --mp-text-muted: #86a79b;
+  --mp-accent-contrast: #062118;
+  --mp-accent-soft: rgb(16 185 129 / 15%);
+
+  @include ds-tokens(colorset, focus);
+}
+
+// 5. Sand — Warm Dieter Rams paper & terracotta minimalist
+[data-mp-palette='sand'] {
+  --ds-color-primary-darker: #9a3412;
+  --ds-color-primary-dark: #c2410c;
+  --ds-color-primary-base: #ea580c;
+  --ds-color-primary-light: #ffedd5;
+  --ds-color-secondary-darker: #1c1917;
+  --ds-color-secondary-dark: #292524;
+  --ds-color-secondary-base: #44403c;
+  --ds-color-secondary-light: #a8a29e;
+  --ds-color-gray-white: #fbf9f5;
+  --ds-color-gray-lightest: #f4f1ea;
+  --ds-color-gray-lighter: #ebe6dc;
+  --ds-color-gray-light: #dcd5c8;
+  --ds-color-gray-base: #bfb6a6;
+  --ds-color-gray-dark: #78716c;
+  --ds-color-gray-darker: #44403c;
+  --ds-color-gray-darkest: #1c1917;
+  --ds-color-shadow-base: rgb(28 25 23 / 12%);
+  --ds-color-input-track: #dcd5c8;
+  --ds-color-input-knob: #78716c;
+  --ds-color-input-knob-checked: #ea580c;
+
+  --mp-bg: #fbf9f5;
+  --mp-surface: #f4f1ea;
+  --mp-surface-alt: #ebe6dc;
+  --mp-border: #dcd5c8;
+  --mp-text: #1c1917;
+  --mp-text-muted: #78716c;
+  --mp-accent-contrast: #ffffff;
+  --mp-accent-soft: rgb(234 88 12 / 12%);
+
+  @include ds-tokens(colorset, focus);
+}

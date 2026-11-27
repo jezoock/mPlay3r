@@ -1,8 +1,21 @@
-// mPlay3r Minimalist Theme scaffold (PR #1) -> dist/css/minimal.css
-// Full 5-palette minimalist theme and player skins are added in PR #4.
+// mPlay3r Minimalist Theme — Embeddable entry point -> dist/css/minimal.css
+// Safe to drop into any third-party web app (no global body/heading resets).
 
 @use './tokens';
+
+// Only the exact dot-stash component skins used by mPlay3r (keeps CSS footprint tiny).
 @use 'pkg:dot-stash/scss/themes/default/components/trigger';
+@use 'pkg:dot-stash/scss/themes/default/components/range';
+@use 'pkg:dot-stash/scss/themes/default/components/toggle';
+@use 'pkg:dot-stash/scss/themes/default/components/select';
+@use 'pkg:dot-stash/scss/themes/default/components/sortable';
+@use 'pkg:dot-stash/scss/themes/default/components/badge';
+@use 'pkg:dot-stash/scss/themes/default/components/tooltip';
+@use 'pkg:dot-stash/scss/themes/default/components/toaster';
+
+@use './icons';
+@use './palettes';
+@use './player';
 
 @include tokens.ds-keyframes();
 @include tokens.ds-tokens();

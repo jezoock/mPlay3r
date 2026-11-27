@@ -409,16 +409,14 @@ export class AudioEngine {
 
   private applyPlaybackRate(): void {
     const media = this.audio as HTMLAudioElement & {
-      preservesPitch?: boolean;
+      preservesPitch: boolean;
       mozPreservesPitch?: boolean;
       webkitPreservesPitch?: boolean;
     };
     try {
       media.defaultPlaybackRate = this.playbackRate;
       media.playbackRate = this.playbackRate;
-      if ('preservesPitch' in media || typeof media.preservesPitch === 'undefined') {
-        media.preservesPitch = true;
-      }
+      media.preservesPitch = true;
       if ('mozPreservesPitch' in media) {
         media.mozPreservesPitch = true;
       }

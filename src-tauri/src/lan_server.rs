@@ -971,14 +971,13 @@ fn format_sse_sync(rev: u64, state_json: &str, listeners: usize) -> String {
 
 fn handle_broadcast_sse(stream: &mut TcpStream, state: &SharedServerState) -> std::io::Result<()> {
     let _ = stream.set_write_timeout(Some(Duration::from_secs(5)));
-    let head = "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream; charset=utf-8\r\nCache-Control: no-cache\r\nConnection: keep-alive\r\nAccess-Control-Allow-Origin: *\r\n\r\n";
-    stream.write_all(head.as_bytes())?;
-    stream.flush()?;
-
     let listeners = state.broadcast.register_listener();
     let (mut last_rev, initial_json, _) = state.broadcast.current();
     let first_frame = format_sse_sync(last_rev, &initial_json, listeners);
-    if stream.write_all(first_frame.as_bytes()).is_err() || stream.flush().is_err() {
+    let initial_payload = format!(
+        "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream; charset=utf-8\r\nCache-Control: no-cache\r\nConnection: keep-alive\r\nAccess-Control-Allow-Origin: *\r\n\r\n{first_frame}"
+    );
+    if stream.write_all(initial_payload.as_bytes()).is_err() || stream.flush().is_err() {
         state.broadcast.unregister_listener();
         return Ok(());
     }
@@ -1150,9 +1149,18 @@ mod tests {
                 b"GET /api/broadcast/events?token=desktop-lan-secret-token-99 HTTP/1.1\r\nHost: localhost\r\n\r\n",
             )
             .unwrap();
+        let mut sse_text = String::new();
         let mut sse_buf = [0u8; 1024];
-        let n = sse_sock.read(&mut sse_buf).unwrap();
-        let sse_text = String::from_utf8_lossy(&sse_buf[..n]);
+        for _ in 0..8 {
+            let n = sse_sock.read(&mut sse_buf).unwrap();
+            if n == 0 {
+                break;
+            }
+            sse_text.push_str(&String::from_utf8_lossy(&sse_buf[..n]));
+            if sse_text.contains("event: sync") && sse_text.contains("\n\n") {
+                break;
+            }
+        }
         assert!(sse_text.contains("text/event-stream"));
         assert!(sse_text.contains("event: sync"));
         assert!(sse_text.contains("\"positionSec\":42"));

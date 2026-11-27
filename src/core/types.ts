@@ -151,4 +151,9 @@ export interface PlatformBridge {
   stopLanShareServer?(): Promise<boolean>;
   getLanShareStatus?(): Promise<LanShareServerStatus | null>;
   writeAudioTags?(filePath: string, tags: AudioTagPatch): Promise<WriteAudioTagsResult | null>;
+  startWindowDrag?(): Promise<void>;
+  minimizeWindow?(): Promise<void>;
+  closeWindow?(): Promise<void>;
+  toggleAlwaysOnTop?(): Promise<boolean>;
+  resizeWindowToContent?(width: number, height: number): Promise<void>;
 }

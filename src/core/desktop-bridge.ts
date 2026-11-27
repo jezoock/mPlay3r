@@ -106,6 +106,35 @@ export async function writeDesktopAudioTags(
   return invokeTauri<WriteAudioTagsResult>('write_audio_tags', { path: filePath, tags });
 }
 
+/** Begins native OS window dragging for the frameless Winamp-style desktop shell. */
+export async function startDesktopWindowDrag(): Promise<void> {
+  await invokeTauri<void>('window_start_dragging');
+}
+
+/** Minimizes the frameless desktop player window. */
+export async function minimizeDesktopWindow(): Promise<void> {
+  await invokeTauri<void>('window_minimize');
+}
+
+/** Closes the frameless desktop player window. */
+export async function closeDesktopWindow(): Promise<void> {
+  await invokeTauri<void>('window_close');
+}
+
+/** Toggles classic Winamp-style always-on-top pinning for the desktop player window. */
+export async function toggleDesktopAlwaysOnTop(): Promise<boolean> {
+  const pinned = await invokeTauri<boolean>('window_toggle_always_on_top');
+  return Boolean(pinned);
+}
+
+/** Smoothly resizes the frameless desktop OS window to match the player's current rendered size. */
+export async function resizeDesktopWindow(width: number, height: number): Promise<void> {
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    return;
+  }
+  await invokeTauri<void>('window_resize_to_content', { width, height });
+}
+
 /** Creates a `PlatformBridge` backed by Tauri v2 IPC commands. */
 export function createTauriPlatformBridge(): PlatformBridge {
   return {
@@ -120,6 +149,11 @@ export function createTauriPlatformBridge(): PlatformBridge {
     stopLanShareServer,
     getLanShareStatus,
     writeAudioTags: writeDesktopAudioTags,
+    startWindowDrag: startDesktopWindowDrag,
+    minimizeWindow: minimizeDesktopWindow,
+    closeWindow: closeDesktopWindow,
+    toggleAlwaysOnTop: toggleDesktopAlwaysOnTop,
+    resizeWindowToContent: resizeDesktopWindow,
   };
 }
 
@@ -149,6 +183,9 @@ export function initDesktopRuntime(): boolean {
   if (!isDesktopRuntime()) {
     return false;
   }
+  if (typeof document !== 'undefined' && document.documentElement) {
+    document.documentElement.classList.add('mp-desktop-frameless');
+  }
   setStorageAdapter(createTauriStorageAdapter());
   setDefaultPlatformBridge(createTauriPlatformBridge());
   return true;
@@ -156,6 +193,9 @@ export function initDesktopRuntime(): boolean {
 
 /** Resets runtime desktop wiring (primarily for unit tests). */
 export function resetDesktopRuntime(): void {
+  if (typeof document !== 'undefined' && document.documentElement) {
+    document.documentElement.classList.remove('mp-desktop-frameless');
+  }
   defaultPlatformBridge = undefined;
   resetStorageAdapter();
 }

@@ -10,14 +10,18 @@
     "frontendDist": "../www"
   },
   "app": {
+    "macOSPrivateApi": true,
     "windows": [
       {
         "label": "main",
         "title": "mPlay3r",
-        "width": 560,
-        "height": 680,
-        "minWidth": 380,
-        "minHeight": 240,
+        "width": 544,
+        "height": 420,
+        "minWidth": 360,
+        "minHeight": 88,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
         "resizable": true,
         "center": true
       }

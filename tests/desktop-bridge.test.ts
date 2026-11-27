@@ -4,20 +4,25 @@ import path from 'node:path';
 import { afterEach, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
+  closeDesktopWindow,
   createTauriPlatformBridge,
   getDefaultPlatformBridge,
   getDesktopAppInfo,
   getLanShareStatus,
   initDesktopRuntime,
   isDesktopRuntime,
+  minimizeDesktopWindow,
   pickDesktopAudioFiles,
   pickDesktopAudioFolder,
   pickDesktopPlaylistFile,
   resetDesktopRuntime,
+  resizeDesktopWindow,
   resolveDesktopAudioPaths,
   saveDesktopPlaylistFile,
+  startDesktopWindowDrag,
   startLanShareServer,
   stopLanShareServer,
+  toggleDesktopAlwaysOnTop,
   writeDesktopAudioTags,
 } from '../src/core/desktop-bridge';
 import { createDefaultPersistedState, loadPersistedState, savePersistedState } from '../src/core/storage';
@@ -44,7 +49,7 @@ afterEach(() => {
   uninstallMockWindow();
 });
 
-describe('PR #6 & PR #18 Tauri v2 desktop bridge, LAN Share & ID3 tag writer IPC', () => {
+describe('PR #6, PR #18 & PR #20 Tauri v2 desktop bridge, frameless window, LAN Share & ID3 tag writer IPC', () => {
   it('returns safe Web fallbacks when __TAURI_INTERNALS__ is absent', async () => {
     uninstallMockWindow();
     assert.equal(isDesktopRuntime(), false);
@@ -72,6 +77,11 @@ describe('PR #6 & PR #18 Tauri v2 desktop bridge, LAN Share & ID3 tag writer IPC
     assert.equal(await stopLanShareServer(), false);
     assert.equal(await getLanShareStatus(), null);
     assert.equal(await writeDesktopAudioTags('/music/a.mp3', { title: 'Test' }), null);
+    await startDesktopWindowDrag();
+    await minimizeDesktopWindow();
+    await closeDesktopWindow();
+    assert.equal(await toggleDesktopAlwaysOnTop(), false);
+    await resizeDesktopWindow(544, 420);
   });
 
   it('invokes every Tauri v2 IPC command with the expected arguments and wires PlatformBridge + StorageAdapter', async () => {
@@ -124,6 +134,13 @@ describe('PR #6 & PR #18 Tauri v2 desktop bridge, LAN Share & ID3 tag writer IPC
             updatedFrames: ['TIT2', 'TPE1'],
             bytesWritten: 2048,
           };
+        case 'window_start_dragging':
+        case 'window_minimize':
+        case 'window_close':
+        case 'window_resize_to_content':
+          return undefined;
+        case 'window_toggle_always_on_top':
+          return true;
         default:
           throw new Error(`Unexpected IPC command: ${cmd}`);
       }
@@ -188,6 +205,13 @@ describe('PR #6 & PR #18 Tauri v2 desktop bridge, LAN Share & ID3 tag writer IPC
     });
     assert.deepEqual(tagRes?.updatedFrames, ['TIT2', 'TPE1']);
 
+    // Frameless Winamp-style window IPC commands
+    await bridge.startWindowDrag?.();
+    await bridge.minimizeWindow?.();
+    assert.equal(await bridge.toggleAlwaysOnTop?.(), true);
+    await bridge.resizeWindowToContent?.(544, 380);
+    await bridge.closeWindow?.();
+
     const invokedNames = calls.map(c => c.cmd);
     assert.deepEqual(invokedNames, [
       'get_app_info',
@@ -202,6 +226,11 @@ describe('PR #6 & PR #18 Tauri v2 desktop bridge, LAN Share & ID3 tag writer IPC
       'get_lan_share_status',
       'stop_lan_share_server',
       'write_audio_tags',
+      'window_start_dragging',
+      'window_minimize',
+      'window_toggle_always_on_top',
+      'window_resize_to_content',
+      'window_close',
     ]);
     assert.deepEqual(calls[3].args, { paths: ['/music/saved.ogg'] });
     assert.deepEqual(calls[5].args, { content: '#EXTM3U\n', defaultName: 'portable.m3u8' });
@@ -210,20 +239,30 @@ describe('PR #6 & PR #18 Tauri v2 desktop bridge, LAN Share & ID3 tag writer IPC
       path: '/music/album/02.mp3',
       tags: { title: 'Voyager', artist: 'Daft Punk' },
     });
+    assert.deepEqual(calls[15].args, { width: 544, height: 380 });
   });
 
-  it('ships valid Tauri v2 configuration, least-privilege capabilities, icons, and size-optimized Cargo profile', () => {
+  it('ships valid frameless transparent Tauri v2 configuration, least-privilege capabilities, icons, and size-optimized Cargo profile', () => {
     const tauriDir = path.join(root, 'src-tauri');
     const conf = JSON.parse(fs.readFileSync(path.join(tauriDir, 'tauri.conf.json'), 'utf8')) as {
       productName: string;
       build: { frontendDist: string };
-      app: { security: { csp: string } };
+      app: {
+        macOSPrivateApi?: boolean;
+        windows: Array<{ decorations?: boolean; transparent?: boolean; shadow?: boolean }>;
+        security: { csp: string };
+      };
       bundle: { icon: string[] };
     };
 
     assert.equal(conf.productName, 'mPlay3r');
     assert.equal(conf.build.frontendDist, '../www');
+    assert.equal(conf.app.macOSPrivateApi, true);
+    assert.equal(conf.app.windows[0]?.decorations, false, 'Standalone window must be frameless (decorations: false)');
+    assert.equal(conf.app.windows[0]?.transparent, true, 'Standalone window must be transparent so the player IS the window');
+    assert.equal(conf.app.windows[0]?.shadow, false);
     assert.ok(conf.app.security.csp.includes('mplay3r:'), 'CSP must allow mplay3r:// custom audio protocol');
+    assert.ok(conf.app.security.csp.includes("script-src 'self' blob:"), 'CSP must allow SHA-256 verified blob: plugin modules');
     for (const iconRel of conf.bundle.icon) {
       const full = path.join(tauriDir, iconRel);
       assert.ok(fs.existsSync(full) && fs.statSync(full).size > 0, `Missing Tauri icon: src-tauri/${iconRel}`);
@@ -235,9 +274,15 @@ describe('PR #6 & PR #18 Tauri v2 desktop bridge, LAN Share & ID3 tag writer IPC
     };
     assert.deepEqual(cap.windows, ['main']);
     assert.ok(cap.permissions.includes('core:default'));
+    assert.ok(cap.permissions.includes('core:window:allow-start-dragging'));
+    assert.ok(cap.permissions.includes('core:window:allow-minimize'));
+    assert.ok(cap.permissions.includes('core:window:allow-close'));
+    assert.ok(cap.permissions.includes('core:window:allow-set-size'));
+    assert.ok(cap.permissions.includes('core:window:allow-set-always-on-top'));
     assert.ok(cap.permissions.includes('dialog:default'));
 
     const cargoToml = fs.readFileSync(path.join(tauriDir, 'Cargo.toml'), 'utf8');
+    assert.match(cargoToml, /macos-private-api/, 'Cargo.toml must enable macos-private-api for transparent macOS windows');
     assert.match(cargoToml, /opt-level\s*=\s*"s"/, 'Release profile must optimize for minimal binary size');
     assert.match(cargoToml, /lto\s*=\s*true/, 'Release profile must enable LTO');
     assert.match(cargoToml, /strip\s*=\s*true/, 'Release profile must strip debug symbols');

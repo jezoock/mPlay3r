@@ -1004,7 +1004,7 @@ export class MPlay3rApp {
           type="file"
           multiple
           accept={AUDIO_FILE_ACCEPT}
-          tabindex={-1}
+          tabindex="-1"
           aria-hidden="true"
           ref={el => (this.fileInputEl = el as HTMLInputElement)}
           onChange={this.handleFileInputChange}
@@ -1013,7 +1013,7 @@ export class MPlay3rApp {
           class="ds-visually-hidden"
           type="file"
           multiple
-          tabindex={-1}
+          tabindex="-1"
           aria-hidden="true"
           ref={el => {
             this.folderInputEl = el as HTMLInputElement;
@@ -1027,7 +1027,7 @@ export class MPlay3rApp {
           class="ds-visually-hidden"
           type="file"
           accept={PLAYLIST_FILE_ACCEPT}
-          tabindex={-1}
+          tabindex="-1"
           aria-hidden="true"
           ref={el => (this.playlistInputEl = el as HTMLInputElement)}
           onChange={this.handleFileInputChange}

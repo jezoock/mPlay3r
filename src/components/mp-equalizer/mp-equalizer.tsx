@@ -111,7 +111,10 @@ export class MpEqualizer {
               type="switch"
               checked={enabled}
               label="Enable equalizer"
-              onToggle={event => this.mpEqToggle.emit(Boolean(event.detail?.checked))}
+              onToggle={(event: Event) => {
+                const detail = (event as CustomEvent<{ checked?: boolean }>).detail;
+                this.mpEqToggle.emit(Boolean(detail?.checked));
+              }}
             />
             <span class="mp-equalizer__heading">Equalizer</span>
           </div>

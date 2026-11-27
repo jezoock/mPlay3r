@@ -16,11 +16,12 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: npm install
-      - name: Build CSS (strict) & Stencil targets (www, dist, custom elements)
+      - name: Build CSS (strict)
         run: |
           npm run clean
           npm run build:css -- --strict
-          npm run build:web
+      - name: Build Stencil targets (www, dist, custom elements)
+        run: npm run build:web
       - name: Verify build outputs
         run: |
           test -s dist/css/minimal.css

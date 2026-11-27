@@ -28,9 +28,11 @@ const PLUGIN_ID_RE = /^[a-z0-9][a-z0-9._-]{1,63}$/;
 const SEMVER_RE = /^(\d+)\.(\d+)\.(\d+)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 const SHA256_RE = /^[a-f0-9]{64}$/i;
 
-export type ManifestValidationResult =
-  | { valid: true; manifest: PluginManifest }
-  | { valid: false; errors: string[] };
+export interface ManifestValidationResult {
+  valid: boolean;
+  manifest?: PluginManifest;
+  errors: string[];
+}
 
 /** Parses a `major.minor.patch` semver string into numeric components, or `null` if invalid. */
 export function parseSemver(version: string): [number, number, number] | null {
@@ -121,6 +123,7 @@ export function validatePluginManifest(raw: unknown): ManifestValidationResult {
 
   return {
     valid: true,
+    errors: [],
     manifest: {
       id: input.id as string,
       name: (input.name as string).trim(),

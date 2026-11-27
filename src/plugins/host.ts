@@ -98,7 +98,7 @@ export class PluginHost {
     }
 
     const validation = validatePluginManifest(plugin.manifest);
-    if (!validation.valid) {
+    if (!validation.valid || !validation.manifest) {
       throw new PluginValidationError(validation.errors);
     }
 

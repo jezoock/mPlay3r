@@ -118,10 +118,9 @@ describe('PR #7 Plugin SDK & Sandboxed PluginHost', () => {
       });
 
       assert.equal(result.valid, true);
-      if (result.valid) {
-        assert.deepEqual(result.manifest.permissions, ['network', 'ui-slot']);
-        assert.equal(result.manifest.sha256, 'a'.repeat(64));
-      }
+      assert.ok(result.manifest);
+      assert.deepEqual(result.manifest.permissions, ['network', 'ui-slot']);
+      assert.equal(result.manifest.sha256, 'a'.repeat(64));
     });
 
     it('rejects malformed ids, unknown categories/permissions, invalid sha256, and incompatible minCoreVersion', () => {
@@ -136,9 +135,7 @@ describe('PR #7 Plugin SDK & Sandboxed PluginHost', () => {
         sizeBytes: -10,
       });
       assert.equal(invalid.valid, false);
-      if (!invalid.valid) {
-        assert.ok(invalid.errors.length >= 6);
-      }
+      assert.ok(invalid.errors.length >= 6);
 
       assert.equal(compareSemver('0.1.0', '0.2.0'), -1);
       assert.equal(compareSemver('1.0.0', '0.9.9'), 1);

@@ -15,6 +15,8 @@ export class MpHeader {
   @Prop() palette: PaletteId = 'obsidian';
   @Prop() showEqualizer = false;
   @Prop() showPlaylist = true;
+  @Prop() hasPluginPanels = false;
+  @Prop() showPluginPanel = false;
   @Prop() compact = false;
   @Prop() isPortable = false;
 
@@ -73,6 +75,18 @@ export class MpHeader {
             <ds-icon type="playlist" />
             <span>PL</span>
           </ds-trigger>
+
+          {this.hasPluginPanels && (
+            <ds-trigger
+              mods={this.showPluginPanel && !this.compact ? 'mp-pill,active' : 'mp-pill'}
+              target={this.playerTarget}
+              action="togglePluginPanel"
+              label="Toggle plugin panel"
+              aria-pressed={this.showPluginPanel && !this.compact ? 'true' : 'false'}
+            >
+              <span>EXT</span>
+            </ds-trigger>
+          )}
 
           <ds-trigger
             mods={this.compact ? 'mp-icon,active' : 'mp-icon'}

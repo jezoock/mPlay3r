@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { AudioEngine } from '../src/core/audio-engine';
 import { parseId3TagsFromBuffer } from '../src/core/metadata';
-import { parsePlaylistContent, serializeM3u } from '../src/core/playlist-io';
+import { parsePlaylistContent, resolveTracksInput, serializeM3u } from '../src/core/playlist-io';
 import { PlaylistStore } from '../src/core/playlist-store';
 import type { PlayerSnapshot, Track } from '../src/core/types';
 import {
@@ -588,5 +588,81 @@ describe('PR #19 — End-to-End Core ↔ Addons Integration Suite', () => {
     assert.equal(parsed.title, 'Été — Cœur');
     assert.equal(parsed.artist, 'Daft Punk');
     assert.equal(parsed.album, 'Discovery (Édition Spéciale)');
+  });
+
+  it('invokes globalThis.fetch with global receiver across PluginStore, PluginHost, and resolveTracksInput (prevents browser Illegal invocation)', async () => {
+    const originalFetch = globalThis.fetch;
+    const requestedUrls: string[] = [];
+
+    const strictBrowserFetch = (async function (this: unknown, input: RequestInfo | URL): Promise<Response> {
+      if (this !== globalThis) {
+        throw new TypeError("Failed to execute 'fetch' on 'Window': Illegal invocation");
+      }
+      const href = String(input);
+      requestedUrls.push(href);
+      if (href.endsWith('/registry.json')) {
+        return new Response(JSON.stringify({ schemaVersion: 1, name: 'Strict Registry', plugins: [] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      if (href.endsWith('.m3u8')) {
+        return new Response('#EXTM3U\n#EXTINF:120,Daft Punk - Voyager\nhttps://cdn.example/voyager.mp3\n', {
+          status: 200,
+        });
+      }
+      return new Response('{"ok":true}', { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }) as typeof fetch;
+
+    globalThis.fetch = strictBrowserFetch;
+    try {
+      // 1. PluginStore with default fetcher AND explicit globalThis.fetch
+      const storeDefault = new PluginStore({
+        coreVersion: '0.1.0',
+        initialRegistries: ['https://addons.mplay3r.test/registry.json'],
+        storageBackend: createMemoryPluginStorage(),
+      });
+      const res1 = await storeDefault.refreshCatalog();
+      assert.deepEqual(res1.errors, []);
+
+      const storeExplicit = new PluginStore({
+        coreVersion: '0.1.0',
+        initialRegistries: ['https://addons.mplay3r.test/registry.json'],
+        storageBackend: createMemoryPluginStorage(),
+        fetcher: globalThis.fetch,
+      });
+      const res2 = await storeExplicit.refreshCatalog();
+      assert.deepEqual(res2.errors, []);
+
+      // 2. PluginHost ctx.fetch without custom adapter.fetcher
+      const { host } = createIntegratedRuntime(undefined as unknown as typeof fetch);
+      let pluginFetchOk = false;
+      await host.install({
+        manifest: {
+          id: 'mplay3r.strict-fetch-test',
+          name: 'Strict Fetch Test',
+          version: '1.0.0',
+          description: 'Verifies ctx.fetch preserves global Window receiver',
+          category: 'source',
+          permissions: ['network'],
+          minCoreVersion: '0.1.0',
+        },
+        async activate(ctx) {
+          const response = await ctx.fetch('https://api.example.test/ping');
+          pluginFetchOk = response.ok;
+        },
+      });
+      assert.equal(pluginFetchOk, true);
+
+      // 3. resolveTracksInput with default fetcher
+      const resolved = await resolveTracksInput('https://cdn.example/demo.m3u8');
+      assert.equal(resolved.error, undefined);
+      assert.equal(resolved.tracks.length, 1);
+      assert.equal(resolved.tracks[0].title, 'Voyager');
+
+      assert.equal(requestedUrls.length, 4);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });

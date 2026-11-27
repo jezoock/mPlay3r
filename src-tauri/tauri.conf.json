@@ -23,7 +23,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: data: mplay3r: http://mplay3r.localhost https://mplay3r.localhost https: http:; connect-src 'self' mplay3r: http://mplay3r.localhost https://mplay3r.localhost https: http:"
+      "csp": "default-src 'self'; script-src 'self' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https: http:; media-src 'self' blob: data: mplay3r: http://mplay3r.localhost https://mplay3r.localhost https: http:; connect-src 'self' mplay3r: http://mplay3r.localhost https://mplay3r.localhost https: http:"
     }
   },
   "bundle": {

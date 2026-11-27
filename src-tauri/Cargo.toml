@@ -1,0 +1,29 @@
+[package]
+name = "mplay3r"
+version = "0.1.0"
+description = "mPlay3r — Lightweight Winamp-inspired audio player"
+authors = ["jezoock"]
+license = "MIT"
+edition = "2021"
+
+[lib]
+name = "mplay3r_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+percent-encoding = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+
+# Aggressive size-focused release profile to keep standalone/portable binaries minimal.
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

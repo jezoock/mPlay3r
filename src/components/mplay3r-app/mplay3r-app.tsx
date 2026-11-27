@@ -28,6 +28,7 @@ import type {
   Track,
   TrackInput,
 } from '../../core';
+import { getDefaultPlatformBridge } from '../../core/desktop-bridge';
 
 let instanceCounter = 0;
 
@@ -189,8 +190,9 @@ export class MPlay3rApp {
       this.engine.setBalance(this.balance);
     }
 
-    if (this.platform?.isDesktop()) {
-      this.desktopInfo = await this.platform.getAppInfo();
+    const bridge = this.getPlatform();
+    if (bridge?.isDesktop()) {
+      this.desktopInfo = await bridge.getAppInfo();
     }
 
     if (this.tracks !== undefined) {
@@ -392,8 +394,9 @@ export class MPlay3rApp {
 
   @Method()
   async openFilePicker(): Promise<void> {
-    if (this.platform?.isDesktop()) {
-      const files = await this.platform.pickAudioFiles();
+    const bridge = this.getPlatform();
+    if (bridge?.isDesktop()) {
+      const files = await bridge.pickAudioFiles();
       if (files && files.length > 0) {
         const added = await this.addTracks(files.map(file => ({ src: file.url, filePath: file.path })));
         await this.notify(added.length === 1 ? `Added "${added[0].title}"` : `Added ${added.length} tracks`, 'success');
@@ -405,8 +408,9 @@ export class MPlay3rApp {
 
   @Method()
   async openFolderPicker(): Promise<void> {
-    if (this.platform?.isDesktop()) {
-      const files = await this.platform.pickAudioFolder();
+    const bridge = this.getPlatform();
+    if (bridge?.isDesktop()) {
+      const files = await bridge.pickAudioFolder();
       if (files && files.length > 0) {
         const added = await this.addTracks(files.map(file => ({ src: file.url, filePath: file.path })));
         await this.notify(`Added ${added.length} tracks from folder`, 'success');
@@ -418,8 +422,9 @@ export class MPlay3rApp {
 
   @Method()
   async importPlaylistFile(): Promise<void> {
-    if (this.platform?.isDesktop()) {
-      const picked = await this.platform.pickPlaylistFile();
+    const bridge = this.getPlatform();
+    if (bridge?.isDesktop()) {
+      const picked = await bridge.pickPlaylistFile();
       if (!picked) {
         return;
       }
@@ -427,7 +432,7 @@ export class MPlay3rApp {
       const nativePaths = parsed.map(t => t.filePath).filter((p): p is string => Boolean(p));
       let tracksToAdd = parsed;
       if (nativePaths.length > 0) {
-        const resolved = await this.platform.resolveAudioPaths(nativePaths);
+        const resolved = await bridge.resolveAudioPaths(nativePaths);
         const urlByPath = new Map((resolved ?? []).map(item => [item.path, item.url]));
         tracksToAdd = parsed.map(item => (item.filePath && urlByPath.has(item.filePath) ? { ...item, src: urlByPath.get(item.filePath)! } : item));
       }
@@ -446,8 +451,9 @@ export class MPlay3rApp {
       return;
     }
     const content = serializeM3u(tracks);
-    if (this.platform?.isDesktop()) {
-      const saved = await this.platform.savePlaylistFile(content, 'mplay3r-playlist.m3u8');
+    const bridge = this.getPlatform();
+    if (bridge?.isDesktop()) {
+      const saved = await bridge.savePlaylistFile(content, 'mplay3r-playlist.m3u8');
       if (saved) {
         await this.notify('Playlist exported (.m3u8)', 'success');
       }
@@ -828,9 +834,10 @@ export class MPlay3rApp {
     }
 
     if (this.tracks === undefined && saved.savedTracks?.length) {
-      if (this.platform?.isDesktop()) {
+      const bridge = this.getPlatform();
+      if (bridge?.isDesktop()) {
         const nativePaths = saved.savedTracks.map(t => t.filePath).filter((p): p is string => Boolean(p));
-        const resolved = await this.platform.resolveAudioPaths(nativePaths);
+        const resolved = await bridge.resolveAudioPaths(nativePaths);
         const urlByPath = new Map((resolved ?? []).map(item => [item.path, item.url]));
         const restored = saved.savedTracks
           .map(t => (t.filePath && urlByPath.has(t.filePath) ? { ...t, src: urlByPath.get(t.filePath)! } : t))
@@ -847,6 +854,10 @@ export class MPlay3rApp {
         }
       }
     }
+  }
+
+  private getPlatform(): PlatformBridge | undefined {
+    return this.platform ?? getDefaultPlatformBridge();
   }
 
   private schedulePersist(): void {

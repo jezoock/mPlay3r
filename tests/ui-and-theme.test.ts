@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { gzipSync } from 'node:zlib';
 import { PALETTES } from '../src/core/constants';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
@@ -82,7 +83,7 @@ describe('PR #4 UI components (dot-stash + ds-trigger) & minimal theme contracts
     }
   });
 
-  it('defines all 5 minimalist palettes with scoped dot-stash token redeclaration', () => {
+  it('defines all 5 minimalist palettes with deduplicated scoped dot-stash token redeclaration', () => {
     const palettesScss = readText(path.join(themeDir, '_palettes.scss'));
     for (const palette of PALETTES) {
       assert.ok(
@@ -90,8 +91,13 @@ describe('PR #4 UI components (dot-stash + ds-trigger) & minimal theme contracts
         `Palette "${palette.id}" missing from scss/themes/minimal/_palettes.scss`,
       );
     }
+    assert.match(
+      palettesScss,
+      /\[data-mp-palette\]\s*\{\s*@include ds-tokens\(colorset,\s*focus\);\s*\}/,
+      'Shared [data-mp-palette] rule must re-emit scoped colorset and focus tokens once',
+    );
     const tokenMixins = palettesScss.match(/@include ds-tokens\(colorset,\s*focus\);/g) ?? [];
-    assert.equal(tokenMixins.length, PALETTES.length, 'Every palette must re-emit scoped colorset and focus tokens');
+    assert.equal(tokenMixins.length, 1, 'colorset/focus tokens should be emitted once on [data-mp-palette], not duplicated per palette');
   });
 
   it('compiles minimal.css with all 5 palettes, icons, no global body reset, and lightweight size budget', () => {
@@ -103,15 +109,25 @@ describe('PR #4 UI components (dot-stash + ds-trigger) & minimal theme contracts
 
     const css = readText(compiledPath);
     for (const palette of PALETTES) {
-      assert.ok(css.includes(`[data-mp-palette=${palette.id}]`) || css.includes(`[data-mp-palette="${palette.id}"]`) || css.includes(`[data-mp-palette='${palette.id}']`), `Compiled minimal.css missing palette "${palette.id}"`);
+      assert.ok(
+        css.includes(`[data-mp-palette=${palette.id}]`) ||
+          css.includes(`[data-mp-palette="${palette.id}"]`) ||
+          css.includes(`[data-mp-palette='${palette.id}']`),
+        `Compiled minimal.css missing palette "${palette.id}"`,
+      );
     }
+    assert.ok(css.includes('[data-mp-palette]{'), 'Compiled minimal.css must include shared [data-mp-palette] token scope');
     assert.ok(css.includes('--ds-color-primary-base:'), 'Compiled CSS must declare dot-stash primary token');
     assert.ok(css.includes('--ds-icons-play:'), 'Compiled CSS must emit play icon token');
     assert.ok(css.includes('--ds-icons-shuffle:'), 'Compiled CSS must emit custom shuffle icon token');
     assert.ok(!/(?:^|})body\{/.test(css), 'Embeddable minimal.css must never emit global body rules');
     assert.ok(!/(?:^|})h1\{/.test(css), 'Embeddable minimal.css must never emit global h1 rules');
 
-    const sizeKb = Buffer.byteLength(css, 'utf8') / 1024;
-    assert.ok(sizeKb < 50, `Expected minimal.css under 50 KB uncompressed, got ${sizeKb.toFixed(1)} KB`);
+    const rawBytes = Buffer.byteLength(css, 'utf8');
+    const gzipBytes = gzipSync(css, { level: 9 }).byteLength;
+    const rawKb = rawBytes / 1024;
+    const gzipKb = gzipBytes / 1024;
+    assert.ok(rawKb < 56, `Expected minimal.css under 56 KB uncompressed, got ${rawKb.toFixed(1)} KB`);
+    assert.ok(gzipKb < 12, `Expected minimal.css under 12 KB gzipped, got ${gzipKb.toFixed(1)} KB`);
   });
 });

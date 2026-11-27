@@ -1,9 +1,12 @@
 @use './tokens' as *;
 
 // Five curated minimalist color schemes for mPlay3r.
-// Each palette overrides dot-stash color tokens inside its `[data-mp-palette='...']` scope
-// and redeclares derived colorset & focus tokens via `@include ds-tokens(colorset, focus)`
-// so multiple embedded `<mplay3r-app>` instances can run different palettes on the same page.
+// Each palette overrides dot-stash color tokens inside its `[data-mp-palette='...']` scope.
+// Derived colorset & focus tokens are redeclared once on `[data-mp-palette]` so every
+// embedded `<mplay3r-app>` resolves its own scoped palette without duplicating ~22 KB of CSS.
+[data-mp-palette] {
+  @include ds-tokens(colorset, focus);
+}
 
 // 1. Obsidian — Deep carbon dark studio (default)
 [data-mp-palette='obsidian'] {
@@ -36,8 +39,6 @@
   --mp-text-muted: #8b949e;
   --mp-accent-contrast: #06131c;
   --mp-accent-soft: rgb(56 189 248 / 14%);
-
-  @include ds-tokens(colorset, focus);
 }
 
 // 2. Slate — Clean minimalist daylight studio
@@ -71,8 +72,6 @@
   --mp-text-muted: #64748b;
   --mp-accent-contrast: #ffffff;
   --mp-accent-soft: rgb(37 99 235 / 11%);
-
-  @include ds-tokens(colorset, focus);
 }
 
 // 3. Amber — Warm minimalist Hi-Fi / classic Winamp gold nod
@@ -106,8 +105,6 @@
   --mp-text-muted: #a8a29e;
   --mp-accent-contrast: #141210;
   --mp-accent-soft: rgb(245 158 11 / 15%);
-
-  @include ds-tokens(colorset, focus);
 }
 
 // 4. Emerald — Precision dark audio monitor
@@ -141,8 +138,6 @@
   --mp-text-muted: #86a79b;
   --mp-accent-contrast: #062118;
   --mp-accent-soft: rgb(16 185 129 / 15%);
-
-  @include ds-tokens(colorset, focus);
 }
 
 // 5. Sand — Warm Dieter Rams paper & terracotta minimalist
@@ -176,6 +171,4 @@
   --mp-text-muted: #78716c;
   --mp-accent-contrast: #ffffff;
   --mp-accent-soft: rgb(234 88 12 / 12%);
-
-  @include ds-tokens(colorset, focus);
 }

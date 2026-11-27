@@ -250,6 +250,51 @@ fn write_audio_tags(
     write_audio_tags_authorized(Path::new(&path), &tags, &allowlist)
 }
 
+fn clamp_window_dimensions(width: f64, height: f64) -> (f64, f64) {
+    let w = if width.is_finite() {
+        width.clamp(360.0, 1100.0)
+    } else {
+        544.0
+    };
+    let h = if height.is_finite() {
+        height.clamp(72.0, 960.0)
+    } else {
+        420.0
+    };
+    (w.ceil(), h.ceil())
+}
+
+#[tauri::command]
+fn window_start_dragging(window: tauri::Window) -> Result<(), String> {
+    window.start_dragging().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn window_minimize(window: tauri::Window) -> Result<(), String> {
+    window.minimize().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn window_close(window: tauri::Window) -> Result<(), String> {
+    window.close().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn window_toggle_always_on_top(window: tauri::Window) -> Result<bool, String> {
+    let current = window.is_always_on_top().map_err(|e| e.to_string())?;
+    let next = !current;
+    window.set_always_on_top(next).map_err(|e| e.to_string())?;
+    Ok(next)
+}
+
+#[tauri::command]
+fn window_resize_to_content(window: tauri::Window, width: f64, height: f64) -> Result<(), String> {
+    let (w, h) = clamp_window_dimensions(width, height);
+    window
+        .set_size(tauri::Size::Logical(tauri::LogicalSize::new(w, h)))
+        .map_err(|e| e.to_string())
+}
+
 fn handle_stream_request(
     app: &tauri::AppHandle,
     request: tauri::http::Request<Vec<u8>>,
@@ -365,7 +410,12 @@ pub fn run() {
             start_lan_share_server,
             stop_lan_share_server,
             get_lan_share_status,
-            write_audio_tags
+            write_audio_tags,
+            window_start_dragging,
+            window_minimize,
+            window_close,
+            window_toggle_always_on_top,
+            window_resize_to_content
         ])
         .run(tauri::generate_context!())
         .expect("error while running mPlay3r desktop application");
@@ -384,6 +434,14 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("mplay3r_lib_{prefix}_{nanos}"));
         fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    #[test]
+    fn clamps_frameless_window_dimensions_safely() {
+        assert_eq!(clamp_window_dimensions(543.2, 412.6), (544.0, 413.0));
+        assert_eq!(clamp_window_dimensions(100.0, 10.0), (360.0, 72.0));
+        assert_eq!(clamp_window_dimensions(5000.0, 5000.0), (1100.0, 960.0));
+        assert_eq!(clamp_window_dimensions(f64::NAN, f64::INFINITY), (544.0, 420.0));
     }
 
     #[test]

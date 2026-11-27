@@ -94,6 +94,19 @@
     box-shadow: 0 12px 32px var(--ds-color-shadow-base);
   }
 
+  &.--frameless &__shell {
+    box-shadow: none;
+  }
+
+  &.--frameless .mp-header {
+    cursor: grab;
+    user-select: none;
+
+    &:active {
+      cursor: grabbing;
+    }
+  }
+
   &__drop-overlay {
     background-color: var(--mp-bg);
     opacity: 0.94;
@@ -111,6 +124,38 @@
 
 // Reusable ds-trigger button modifiers inside mPlay3r.
 .mp-app .ds-control {
+  &.--mp-win {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.55rem;
+    height: 1.55rem;
+    border-radius: ds-radius(sm);
+    color: var(--mp-text-muted);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    transition:
+      color 0.15s ease,
+      background-color 0.15s ease;
+
+    &:hover {
+      color: var(--mp-text);
+      background-color: var(--mp-surface-alt);
+    }
+
+    &.--active {
+      color: var(--ds-color-primary-base);
+      background-color: var(--mp-accent-soft);
+    }
+
+    &.--close:hover {
+      color: #ffffff;
+      background-color: #dc2626;
+    }
+  }
+
   &.--mp-icon {
     display: inline-flex;
     align-items: center;

@@ -20,13 +20,17 @@ export class MpHeader {
   @Prop() showPluginPanel = false;
   @Prop() compact = false;
   @Prop() isPortable = false;
+  @Prop() isDesktop = false;
+  @Prop() alwaysOnTop = false;
 
   render() {
     return (
-      <Host class="mp-header">
-        <div class="mp-header__brand">
+      <Host class="mp-header" data-tauri-drag-region={this.isDesktop ? '' : undefined}>
+        <div class="mp-header__brand" data-tauri-drag-region={this.isDesktop ? '' : undefined}>
           <ds-icon class="mp-header__logo" type="music" />
-          <span class="mp-header__title">mPlay3r</span>
+          <span class="mp-header__title" data-tauri-drag-region={this.isDesktop ? '' : undefined}>
+            mPlay3r
+          </span>
           {this.isPortable && (
             <ds-badge class="mp-header__portable" type="info">
               Portable
@@ -108,6 +112,36 @@ export class MpHeader {
           >
             <ds-icon type={this.compact ? 'arrow-down' : 'arrow-up'} />
           </ds-trigger>
+
+          {this.isDesktop && (
+            <div class="mp-header__win-controls" role="group" aria-label="Window controls">
+              <ds-trigger
+                mods={this.alwaysOnTop ? 'mp-win,active' : 'mp-win'}
+                target={this.playerTarget}
+                action="toggleAlwaysOnTop"
+                label={this.alwaysOnTop ? 'Unpin window' : 'Always on top'}
+                aria-pressed={this.alwaysOnTop ? 'true' : 'false'}
+              >
+                <span aria-hidden="true">⊤</span>
+              </ds-trigger>
+              <ds-trigger
+                mods="mp-win"
+                target={this.playerTarget}
+                action="minimizeWindow"
+                label="Minimize window"
+              >
+                <span aria-hidden="true">—</span>
+              </ds-trigger>
+              <ds-trigger
+                mods="mp-win,close"
+                target={this.playerTarget}
+                action="closeWindow"
+                label="Close mPlay3r"
+              >
+                <span aria-hidden="true">×</span>
+              </ds-trigger>
+            </div>
+          )}
         </div>
       </Host>
     );

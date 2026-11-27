@@ -7,9 +7,17 @@
 
   &__brand,
   &__palettes,
-  &__toggles {
+  &__toggles,
+  &__win-controls {
     display: flex;
     align-items: center;
     gap: 0.375rem;
+  }
+
+  &__win-controls {
+    gap: 0.2rem;
+    padding-inline-start: 0.35rem;
+    margin-inline-start: 0.15rem;
+    border-inline-start: 1px solid var(--mp-border);
   }
 }

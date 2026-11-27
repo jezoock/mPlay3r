@@ -107,6 +107,7 @@ export class MPlay3rApp {
   @State() filterQuery = '';
   @State() isDraggingFiles = false;
   @State() desktopInfo: DesktopAppInfo = { isDesktop: false, isPortable: false };
+  @State() alwaysOnTop = false;
   @State() errorMessage = '';
   @State() pluginSlots: RegisteredPluginSlot[] = [];
   @State() activePluginPanelKey = '';
@@ -139,6 +140,9 @@ export class MPlay3rApp {
   private playlistInputEl?: HTMLInputElement;
   private toasterEl?: ToasterRef;
   private persistTimer?: ReturnType<typeof setTimeout>;
+  private windowResizeObserver?: ResizeObserver;
+  private resizeRafId?: number;
+  private lastWindowSize = '';
   private dragDepth = 0;
   private paletteSetByAttribute = false;
 
@@ -259,8 +263,37 @@ export class MPlay3rApp {
     this.registerMediaSessionHandlers();
   }
 
+  componentDidLoad() {
+    const bridge = this.getPlatform();
+    if (!this.desktopInfo.isDesktop || !bridge?.resizeWindowToContent || typeof ResizeObserver === 'undefined') {
+      return;
+    }
+    const syncSize = () => {
+      if (this.resizeRafId !== undefined) {
+        cancelAnimationFrame(this.resizeRafId);
+      }
+      this.resizeRafId = requestAnimationFrame(() => {
+        const rect = this.host.getBoundingClientRect();
+        const width = Math.ceil(rect.width);
+        const height = Math.ceil(rect.height);
+        const key = `${width}x${height}`;
+        if (width > 0 && height > 0 && key !== this.lastWindowSize) {
+          this.lastWindowSize = key;
+          void bridge.resizeWindowToContent?.(width, height);
+        }
+      });
+    };
+    this.windowResizeObserver = new ResizeObserver(syncSize);
+    this.windowResizeObserver.observe(this.host);
+    syncSize();
+  }
+
   disconnectedCallback() {
     clearTimeout(this.persistTimer);
+    if (this.resizeRafId !== undefined) {
+      cancelAnimationFrame(this.resizeRafId);
+    }
+    this.windowResizeObserver?.disconnect();
     this.teardownAllSlots();
     this.unsubscribePluginHost?.();
     void this.pluginHost?.destroy();
@@ -767,6 +800,33 @@ export class MPlay3rApp {
     return true;
   }
 
+  /** Initiates native OS window dragging when running in frameless Desktop mode. */
+  @Method()
+  async startWindowDrag(): Promise<void> {
+    await this.getPlatform()?.startWindowDrag?.();
+  }
+
+  /** Minimizes the frameless Desktop player window. */
+  @Method()
+  async minimizeWindow(): Promise<void> {
+    await this.getPlatform()?.minimizeWindow?.();
+  }
+
+  /** Closes the frameless Desktop player window. */
+  @Method()
+  async closeWindow(): Promise<void> {
+    await this.getPlatform()?.closeWindow?.();
+  }
+
+  /** Toggles classic Winamp-style always-on-top pinning for the Desktop window. */
+  @Method()
+  async toggleAlwaysOnTop(): Promise<void> {
+    const pinned = await this.getPlatform()?.toggleAlwaysOnTop?.();
+    if (typeof pinned === 'boolean') {
+      this.alwaysOnTop = pinned;
+    }
+  }
+
   //#endregion
 
   //#region KEYBOARD & DRAG-DROP HANDLERS
@@ -846,6 +906,20 @@ export class MPlay3rApp {
         break;
     }
   }
+
+  private handleHostMouseDown = (event: MouseEvent) => {
+    if (!this.desktopInfo.isDesktop || event.button !== 0) {
+      return;
+    }
+    const target = event.target as HTMLElement | null;
+    if (!target || !target.closest('[data-tauri-drag-region]')) {
+      return;
+    }
+    if (target.closest('button, input, select, textarea, a, ds-trigger, ds-range, ds-select, ds-toggle')) {
+      return;
+    }
+    void this.startWindowDrag();
+  };
 
   private handleDragEnter = (event: DragEvent) => {
     if (!event.dataTransfer?.types?.includes('Files')) {
@@ -1295,11 +1369,13 @@ export class MPlay3rApp {
           'mp-app': true,
           '--compact': this.compact,
           '--dragging': this.isDraggingFiles,
+          '--frameless': this.desktopInfo.isDesktop,
           '--headless': this.headless || customThemeLayout,
           [`--status-${this.status}`]: true,
         }}
         data-mp-palette={this.palette}
         data-mp-status={this.status}
+        onMouseDown={this.handleHostMouseDown}
         onDragEnter={this.handleDragEnter}
         onDragOver={this.handleDragOver}
         onDragLeave={this.handleDragLeave}
@@ -1362,6 +1438,8 @@ export class MPlay3rApp {
               showPluginPanel={Boolean(activePanel)}
               compact={this.compact}
               isPortable={this.desktopInfo.isPortable}
+              isDesktop={this.desktopInfo.isDesktop}
+              alwaysOnTop={this.alwaysOnTop}
             />
 
             {!this.compact &&

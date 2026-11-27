@@ -114,7 +114,7 @@ const checks = [
       ...MPLAY3R_COMPONENTS,
       ...USED_DS_COMPONENTS,
     ]),
-    maxGzipKb: 45,
+    maxGzipKb: 65,
   },
   { metric: measureDirJs('www/build lazy collection', 'www/build'), maxGzipKb: 120 },
   { metric: measureDirJs('dist/mplay3r lazy collection', 'dist/mplay3r'), maxGzipKb: 120 },

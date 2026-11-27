@@ -34,18 +34,57 @@ function measureFile(relPath) {
   return measureBuffer(relPath, fs.readFileSync(full));
 }
 
-function measureFiles(label, relDir, predicate) {
+function measureDirJs(label, relDir) {
   const fullDir = path.join(root, relDir);
   if (!fs.existsSync(fullDir)) {
     throw new Error(`Missing build directory: ${relDir}`);
   }
   const files = fs
     .readdirSync(fullDir)
-    .filter(name => name.endsWith('.js') && !name.endsWith('.cjs.js') && predicate(name))
+    .filter(name => name.endsWith('.js') && !name.endsWith('.cjs.js'))
     .sort();
   if (files.length === 0) {
-    throw new Error(`No matching JS bundles found in ${relDir} for ${label}`);
+    throw new Error(`No JS bundles found in ${relDir}`);
   }
+  return sumFiles(label, fullDir, files);
+}
+
+/**
+ * Traces the exact static ESM import graph in `dist/components/` starting from mPlay3r's
+ * components and the 9 dot-stash components it actually renders (each shared chunk counted once).
+ */
+function measureCustomElementsGraph(label, relDir, entryTags) {
+  const fullDir = path.join(root, relDir);
+  if (!fs.existsSync(fullDir)) {
+    throw new Error(`Missing build directory: ${relDir}`);
+  }
+  const visited = new Set();
+  const queue = entryTags.map(tag => `${tag}.js`).filter(name => fs.existsSync(path.join(fullDir, name)));
+  const importRe = /\b(?:import|export)\b[^'"]*?\bfrom\s*['"](\.\/[^'"]+)['"]|\bimport\s*['"](\.\/[^'"]+)['"]/g;
+
+  while (queue.length > 0) {
+    const file = queue.shift();
+    if (!file || visited.has(file)) {
+      continue;
+    }
+    const fullPath = path.join(fullDir, file);
+    if (!fs.existsSync(fullPath)) {
+      continue;
+    }
+    visited.add(file);
+    const code = fs.readFileSync(fullPath, 'utf8');
+    for (const match of code.matchAll(importRe)) {
+      const target = (match[1] || match[2] || '').replace(/^\.\//, '');
+      if (target && !visited.has(target)) {
+        queue.push(target);
+      }
+    }
+  }
+
+  return sumFiles(label, fullDir, Array.from(visited).sort());
+}
+
+function sumFiles(label, fullDir, files) {
   let raw = 0;
   let gzip = 0;
   let brotli = 0;
@@ -63,35 +102,22 @@ function measureFiles(label, relDir, predicate) {
   };
 }
 
-function isPlayerRuntimeChunk(filename) {
-  if (filename === 'mplay3r.esm.js' || filename.startsWith('p-')) {
-    return true;
-  }
-  return [...MPLAY3R_COMPONENTS, ...USED_DS_COMPONENTS].some(tag => filename.startsWith(tag));
-}
-
 const checks = [
   { metric: measureFile('dist/css/minimal.css'), maxRawKb: 56, maxGzipKb: 12 },
   { metric: measureFile('dist/css/app.css'), maxRawKb: 4, maxGzipKb: 2 },
   { metric: measureFile('www/sw.js'), maxRawKb: 4, maxGzipKb: 2 },
   { metric: measureFile('www/icons/icon.svg'), maxRawKb: 2, maxGzipKb: 1 },
+  { metric: measureFile('www/build/mplay3r.esm.js'), maxGzipKb: 4 },
   { metric: measureFile('dist/components/mplay3r-app.js'), maxGzipKb: 10 },
   {
-    metric: measureFiles('dist/components (mp-*)', 'dist/components', name => MPLAY3R_COMPONENTS.some(tag => name === `${tag}.js`)),
-    maxGzipKb: 20,
+    metric: measureCustomElementsGraph('embed JS graph (mp-* + ds-* + runtime)', 'dist/components', [
+      ...MPLAY3R_COMPONENTS,
+      ...USED_DS_COMPONENTS,
+    ]),
+    maxGzipKb: 45,
   },
-  {
-    metric: measureFiles('www/build runtime payload', 'www/build', isPlayerRuntimeChunk),
-    maxGzipKb: 50,
-  },
-  {
-    metric: measureFiles('www/build full lazy dir', 'www/build', () => true),
-    maxGzipKb: 120,
-  },
-  {
-    metric: measureFiles('dist/mplay3r full lazy dir', 'dist/mplay3r', () => true),
-    maxGzipKb: 120,
-  },
+  { metric: measureDirJs('www/build lazy collection', 'www/build'), maxGzipKb: 120 },
+  { metric: measureDirJs('dist/mplay3r lazy collection', 'dist/mplay3r'), maxGzipKb: 120 },
 ];
 
 const failures = [];
@@ -105,7 +131,7 @@ for (const { metric, maxRawKb, maxGzipKb } of checks) {
       : 'OK';
 
   console.log(
-    `  [${status}] ${metric.label.padEnd(40)} raw=${formatKb(metric.raw).padStart(9)}  gzip=${formatKb(metric.gzip).padStart(9)}  br=${formatKb(metric.brotli).padStart(9)}`,
+    `  [${status}] ${metric.label.padEnd(48)} raw=${formatKb(metric.raw).padStart(9)}  gzip=${formatKb(metric.gzip).padStart(9)}  br=${formatKb(metric.brotli).padStart(9)}`,
   );
 
   if (maxRawKb !== undefined && rawKb > maxRawKb) {

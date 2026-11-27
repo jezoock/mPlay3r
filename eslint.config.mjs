@@ -20,6 +20,12 @@ export default defineConfig(
     },
   },
   {
+    files: ['src/sw.js'],
+    languageOptions: {
+      globals: globals.serviceworker,
+    },
+  },
+  {
     files: ['*.mjs', 'scripts/**/*.mjs', 'stencil.config.ts', 'tests/**/*.ts'],
     languageOptions: {
       globals: globals.node,

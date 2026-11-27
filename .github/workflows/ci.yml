@@ -46,8 +46,25 @@ jobs:
           test -s dist/css/minimal.css
           test -s dist/css/app.css
           test -s www/build/mplay3r.esm.js
+          test -s www/embed-demo.html
+          test -s www/manifest.webmanifest
+          test -s www/icons/icon.svg
+          test -s www/sw.js
           test -s dist/components/index.js
-          ls -lh dist/css/minimal.css www/build/mplay3r.esm.js
+          test -s dist/components/mplay3r-app.js
+          test -s loader/index.js
+      - name: Check bundle weight budget
+        run: |
+          set +e
+          out=$(npm run check:size 2>&1)
+          code=$?
+          printf '%s\n' "$out"
+          if [ $code -ne 0 ]; then
+            msg=$(printf '%s\n' "$out" | tail -n 80)
+            msg="${msg//'%'/'%25'}"; msg="${msg//$'\r'/'%0D'}"; msg="${msg//$'\n'/'%0A'}"
+            printf '::error title=Bundle weight budget failed::%s\n' "$msg"
+            exit $code
+          fi
       - name: Typecheck
         run: |
           set +e

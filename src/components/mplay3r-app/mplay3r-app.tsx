@@ -13,6 +13,7 @@ import {
   parsePlaylistContent,
   PLAYLIST_FILE_ACCEPT,
   PlaylistStore,
+  resolveTracksInput,
   savePersistedState,
   serializeM3u,
 } from '../../core';
@@ -764,37 +765,18 @@ export class MPlay3rApp {
   }
 
   private async loadTracksProp(input: TrackInput[] | string): Promise<void> {
-    let parsed: TrackInput[] = [];
-    if (Array.isArray(input)) {
-      parsed = input;
-    } else if (typeof input === 'string') {
-      const trimmed = input.trim();
-      if (!trimmed) {
-        return;
-      }
-      if (trimmed.startsWith('[')) {
-        try {
-          parsed = JSON.parse(trimmed) as TrackInput[];
-        } catch {
-          console.error('[mplay3r] invalid JSON in tracks attribute');
-          return;
-        }
-      } else if (isPlaylistFilename(trimmed)) {
-        try {
-          const response = await fetch(trimmed);
-          if (response.ok) {
-            const text = await response.text();
-            parsed = parsePlaylistContent(text, trimmed, response.url);
-          }
-        } catch {
-          await this.notify('Unable to load playlist URL.', 'error');
-          return;
-        }
-      }
+    const result = await resolveTracksInput(input);
+    if (result.error === 'invalid-json') {
+      console.error('[mplay3r] invalid JSON in tracks attribute');
+      return;
+    }
+    if (result.error === 'fetch-failed') {
+      await this.notify('Unable to load playlist URL.', 'error');
+      return;
     }
 
-    if (parsed.length > 0) {
-      this.playlist.replaceTracks(parsed);
+    if (result.tracks.length > 0) {
+      this.playlist.replaceTracks(result.tracks);
       this.syncPlaylistView();
       const first = this.playlist.getCurrentTrack();
       if (first) {

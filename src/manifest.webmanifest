@@ -1,9 +1,20 @@
 {
+  "id": "/",
   "name": "mPlay3r",
   "short_name": "mPlay3r",
   "description": "Lightweight minimalist music player with 10-band equalizer and playlist manager.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#0e1116",
-  "theme_color": "#0e1116"
+  "theme_color": "#0e1116",
+  "categories": ["music", "utilities"],
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
 }

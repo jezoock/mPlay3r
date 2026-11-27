@@ -1,6 +1,11 @@
-import { getFileExtension } from './format';
+import { getFileExtension, isAudioFilename, isPlaylistFilename } from './format';
 import { parseFilenameMetadata } from './metadata';
 import type { Track, TrackInput } from './types';
+
+export interface ResolveTracksResult {
+  tracks: TrackInput[];
+  error?: 'invalid-json' | 'fetch-failed';
+}
 
 /**
  * Parses M3U / M3U8 playlists (classic Winamp format with optional #EXTINF duration & title).
@@ -137,6 +142,68 @@ export function parsePlaylistContent(content: string, filename = '', baseUrl?: s
     return parsePls(content, baseUrl);
   }
   return parseM3u(content, baseUrl);
+}
+
+/**
+ * Resolves the `<mplay3r-app tracks="...">` prop: accepts a TrackInput array,
+ * a JSON array string, a URL to an M3U/M3U8/PLS playlist, or a direct audio file URL.
+ */
+export async function resolveTracksInput(
+  input: TrackInput[] | string,
+  fetcher: typeof fetch = fetch,
+): Promise<ResolveTracksResult> {
+  if (Array.isArray(input)) {
+    return {
+      tracks: input.filter(item => Boolean(item && typeof item.src === 'string' && item.src.trim())),
+    };
+  }
+
+  if (typeof input !== 'string') {
+    return { tracks: [] };
+  }
+
+  const trimmed = input.trim();
+  if (!trimmed) {
+    return { tracks: [] };
+  }
+
+  if (trimmed.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(trimmed) as unknown;
+      if (!Array.isArray(parsed)) {
+        return { tracks: [], error: 'invalid-json' };
+      }
+      return {
+        tracks: parsed.filter(
+          (item): item is TrackInput =>
+            Boolean(item && typeof item === 'object' && typeof (item as TrackInput).src === 'string' && (item as TrackInput).src.trim()),
+        ),
+      };
+    } catch {
+      return { tracks: [], error: 'invalid-json' };
+    }
+  }
+
+  if (isPlaylistFilename(trimmed)) {
+    try {
+      const response = await fetcher(trimmed);
+      if (!response.ok) {
+        return { tracks: [], error: 'fetch-failed' };
+      }
+      const text = await response.text();
+      return {
+        tracks: parsePlaylistContent(text, trimmed, response.url || trimmed),
+      };
+    } catch {
+      return { tracks: [], error: 'fetch-failed' };
+    }
+  }
+
+  if (isAudioFilename(trimmed)) {
+    return { tracks: [{ src: trimmed }] };
+  }
+
+  return { tracks: [] };
 }
 
 /** Serializes tracks into an extended M3U8 playlist string. */

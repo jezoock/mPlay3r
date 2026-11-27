@@ -173,6 +173,8 @@ export interface PluginPlaybackApi {
   previous(): Promise<void>;
   seek(seconds: number): Promise<void>;
   setVolume(volume: number): Promise<void>;
+  setPlaybackRate?(rate: number): Promise<void>;
+  getPlaybackRate?(): number;
   getStatus(): PlaybackStatus;
 }
 

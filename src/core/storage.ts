@@ -39,6 +39,7 @@ export function createDefaultPersistedState(): PersistedState {
     volume: 0.85,
     muted: false,
     balance: 0,
+    playbackRate: 1,
     shuffle: false,
     repeat: 'off',
     showRemaining: false,
@@ -69,6 +70,10 @@ export function sanitizePersistedState(raw: unknown): PersistedState {
     volume: typeof input.volume === 'number' ? clamp(input.volume, 0, 1) : defaults.volume,
     muted: typeof input.muted === 'boolean' ? input.muted : defaults.muted,
     balance: typeof input.balance === 'number' ? clamp(input.balance, -1, 1) : defaults.balance,
+    playbackRate:
+      typeof input.playbackRate === 'number' && Number.isFinite(input.playbackRate)
+        ? Math.round(clamp(input.playbackRate, 0.5, 2) * 100) / 100
+        : defaults.playbackRate,
     shuffle: typeof input.shuffle === 'boolean' ? input.shuffle : defaults.shuffle,
     repeat: VALID_REPEATS.includes(input.repeat as RepeatMode) ? (input.repeat as RepeatMode) : defaults.repeat,
     showRemaining: typeof input.showRemaining === 'boolean' ? input.showRemaining : defaults.showRemaining,

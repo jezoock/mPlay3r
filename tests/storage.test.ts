@@ -14,6 +14,7 @@ describe('storage state sanitization & persistence adapter', () => {
     const clean = sanitizePersistedState({
       volume: 5,
       balance: -99,
+      playbackRate: 4.5,
       repeat: 'invalid-mode',
       palette: 'neon-pink',
       equalizer: {
@@ -27,6 +28,8 @@ describe('storage state sanitization & persistence adapter', () => {
 
     assert.equal(clean.volume, 1);
     assert.equal(clean.balance, -1);
+    assert.equal(clean.playbackRate, 2);
+    assert.equal(sanitizePersistedState({ playbackRate: 0.1 }).playbackRate, 0.5);
     assert.equal(clean.repeat, 'off');
     assert.equal(clean.palette, 'obsidian');
     assert.equal(clean.equalizer.enabled, false);
@@ -50,6 +53,7 @@ describe('storage state sanitization & persistence adapter', () => {
     const custom = {
       ...createDefaultPersistedState(),
       volume: 0.42,
+      playbackRate: 1.5,
       palette: 'amber' as const,
       repeat: 'all' as const,
     };
@@ -57,6 +61,7 @@ describe('storage state sanitization & persistence adapter', () => {
     await savePersistedState(custom, memoryAdapter);
     const loaded = await loadPersistedState(memoryAdapter);
     assert.equal(loaded.volume, 0.42);
+    assert.equal(loaded.playbackRate, 1.5);
     assert.equal(loaded.palette, 'amber');
     assert.equal(loaded.repeat, 'all');
 

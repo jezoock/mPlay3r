@@ -207,4 +207,50 @@ describe('AudioEngine Web Audio DSP graph', () => {
     assert.equal(engine.getStatus(), 'error');
     assert.equal(errors[0], 'Audio format or source is not supported.');
   });
+
+  it('controls playbackRate in [0.5, 2], preserves pitch, and re-applies speed across source loads', async () => {
+    const env = createMockAudioEnvironment();
+    const audio = env.audioEl as unknown as {
+      playbackRate?: number;
+      defaultPlaybackRate?: number;
+      preservesPitch?: boolean;
+      load: () => void;
+    };
+    // Simulate real browser behavior where audio.load() resets playbackRate to 1.
+    const origLoad = audio.load.bind(audio);
+    audio.load = () => {
+      origLoad();
+      audio.playbackRate = 1;
+    };
+
+    const engine = new AudioEngine(
+      {},
+      {
+        createAudioElement: () => env.audioEl as unknown as HTMLAudioElement,
+        createAudioContext: () => env.audioContext as unknown as AudioContext,
+      },
+    );
+
+    assert.equal(engine.getPlaybackRate(), 1);
+    assert.equal(audio.preservesPitch, true);
+
+    assert.equal(engine.setPlaybackRate(1.5), 1.5);
+    assert.equal(audio.playbackRate, 1.5);
+    assert.equal(audio.defaultPlaybackRate, 1.5);
+    assert.equal(audio.preservesPitch, true);
+
+    // Clamping bounds [0.5, 2] & non-finite fallback to 1
+    assert.equal(engine.setPlaybackRate(0.1), 0.5);
+    assert.equal(engine.setPlaybackRate(5), 2);
+    assert.equal(engine.setPlaybackRate(Number.NaN), 1);
+
+    // Speed must survive loadSource() and loadedmetadata events.
+    engine.setPlaybackRate(1.25);
+    engine.loadSource('https://example.com/podcast-ep1.mp3');
+    assert.equal(audio.playbackRate, 1.25);
+
+    audio.playbackRate = 1;
+    env.audioEl.emit('loadedmetadata');
+    assert.equal(audio.playbackRate, 1.25);
+  });
 });

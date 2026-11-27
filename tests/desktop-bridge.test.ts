@@ -7,6 +7,7 @@ import {
   createTauriPlatformBridge,
   getDefaultPlatformBridge,
   getDesktopAppInfo,
+  getLanShareStatus,
   initDesktopRuntime,
   isDesktopRuntime,
   pickDesktopAudioFiles,
@@ -15,6 +16,9 @@ import {
   resetDesktopRuntime,
   resolveDesktopAudioPaths,
   saveDesktopPlaylistFile,
+  startLanShareServer,
+  stopLanShareServer,
+  writeDesktopAudioTags,
 } from '../src/core/desktop-bridge';
 import { createDefaultPersistedState, loadPersistedState, savePersistedState } from '../src/core/storage';
 
@@ -40,7 +44,7 @@ afterEach(() => {
   uninstallMockWindow();
 });
 
-describe('PR #6 Tauri v2 desktop bridge & packaging', () => {
+describe('PR #6 & PR #18 Tauri v2 desktop bridge, LAN Share & ID3 tag writer IPC', () => {
   it('returns safe Web fallbacks when __TAURI_INTERNALS__ is absent', async () => {
     uninstallMockWindow();
     assert.equal(isDesktopRuntime(), false);
@@ -54,6 +58,20 @@ describe('PR #6 Tauri v2 desktop bridge & packaging', () => {
     assert.equal(await resolveDesktopAudioPaths(['/music/a.flac']), null);
     assert.equal(await pickDesktopPlaylistFile(), null);
     assert.equal(await saveDesktopPlaylistFile('#EXTM3U\n'), false);
+    assert.equal(
+      await startLanShareServer({
+        serverName: 'Test',
+        port: 8765,
+        bindAddress: '0.0.0.0',
+        sharedFolders: ['/music'],
+        pin: '123456',
+        bearerToken: 'token-0123456789abcdef',
+      }),
+      null,
+    );
+    assert.equal(await stopLanShareServer(), false);
+    assert.equal(await getLanShareStatus(), null);
+    assert.equal(await writeDesktopAudioTags('/music/a.mp3', { title: 'Test' }), null);
   });
 
   it('invokes every Tauri v2 IPC command with the expected arguments and wires PlatformBridge + StorageAdapter', async () => {
@@ -80,6 +98,32 @@ describe('PR #6 Tauri v2 desktop bridge & packaging', () => {
           return true;
         case 'load_persisted_state':
           return persistedJson;
+        case 'start_lan_share_server':
+          return {
+            running: true,
+            url: 'http://192.168.1.42:8765',
+            serverName: 'Studio Desktop',
+            port: 8765,
+            folderCount: 1,
+            trackCount: 42,
+          };
+        case 'get_lan_share_status':
+          return {
+            running: true,
+            url: 'http://192.168.1.42:8765',
+            serverName: 'Studio Desktop',
+            port: 8765,
+            folderCount: 1,
+            trackCount: 42,
+          };
+        case 'stop_lan_share_server':
+          return true;
+        case 'write_audio_tags':
+          return {
+            path: '/music/album/02.mp3',
+            updatedFrames: ['TIT2', 'TPE1'],
+            bytesWritten: 2048,
+          };
         default:
           throw new Error(`Unexpected IPC command: ${cmd}`);
       }
@@ -119,6 +163,31 @@ describe('PR #6 Tauri v2 desktop bridge & packaging', () => {
     assert.equal(restored.volume, 0.42);
     assert.equal(restored.palette, 'amber');
 
+    // PR #18 native LAN Share & ID3 tag writer IPC commands
+    const lanConfig = {
+      serverName: 'Studio Desktop',
+      port: 8765,
+      bindAddress: '0.0.0.0',
+      sharedFolders: ['/music'],
+      pin: '654321',
+      bearerToken: 'token-0123456789abcdef',
+    };
+    const started = await bridge.startLanShareServer?.(lanConfig);
+    assert.equal(started?.running, true);
+    assert.equal(started?.url, 'http://192.168.1.42:8765');
+
+    const status = await bridge.getLanShareStatus?.();
+    assert.equal(status?.trackCount, 42);
+
+    const stopped = await bridge.stopLanShareServer?.();
+    assert.equal(stopped, true);
+
+    const tagRes = await bridge.writeAudioTags?.('/music/album/02.mp3', {
+      title: 'Voyager',
+      artist: 'Daft Punk',
+    });
+    assert.deepEqual(tagRes?.updatedFrames, ['TIT2', 'TPE1']);
+
     const invokedNames = calls.map(c => c.cmd);
     assert.deepEqual(invokedNames, [
       'get_app_info',
@@ -129,9 +198,18 @@ describe('PR #6 Tauri v2 desktop bridge & packaging', () => {
       'save_playlist_file',
       'save_persisted_state',
       'load_persisted_state',
+      'start_lan_share_server',
+      'get_lan_share_status',
+      'stop_lan_share_server',
+      'write_audio_tags',
     ]);
     assert.deepEqual(calls[3].args, { paths: ['/music/saved.ogg'] });
     assert.deepEqual(calls[5].args, { content: '#EXTM3U\n', defaultName: 'portable.m3u8' });
+    assert.deepEqual(calls[8].args, { config: lanConfig });
+    assert.deepEqual(calls[11].args, {
+      path: '/music/album/02.mp3',
+      tags: { title: 'Voyager', artist: 'Daft Punk' },
+    });
   });
 
   it('ships valid Tauri v2 configuration, least-privilege capabilities, icons, and size-optimized Cargo profile', () => {

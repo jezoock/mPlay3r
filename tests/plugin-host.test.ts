@@ -379,9 +379,46 @@ describe('PR #7 Plugin SDK & Sandboxed PluginHost', () => {
   });
 
   describe('<mplay3r-app> plugin slots & ds-trigger host integration', () => {
-    it('exposes plugin lifecycle methods and UI slot regions on mplay3r-app', () => {
+    it('gates playback.setPlaybackRate behind playback-control permission and forwards to host adapter', async () => {
+      let hostRate = 1;
+      const { adapter } = createMockAdapter();
+      adapter.playback.setPlaybackRate = async r => {
+        hostRate = r;
+      };
+      adapter.playback.getPlaybackRate = () => hostRate;
+
+      const host = new PluginHost(adapter, createMemoryPluginStorage());
+
+      let allowedCtxRate = 1;
+      await host.install({
+        manifest: makeManifest({ id: 'mplay3r.podcast-speed', permissions: ['playback-control'] }),
+        async activate(ctx) {
+          await ctx.playback.setPlaybackRate?.(1.5);
+          allowedCtxRate = ctx.playback.getPlaybackRate?.() ?? 1;
+        },
+      });
+      assert.equal(hostRate, 1.5);
+      assert.equal(allowedCtxRate, 1.5);
+
+      let deniedErr: unknown = null;
+      await host.install({
+        manifest: makeManifest({ id: 'mplay3r.no-speed-perm', permissions: [] }),
+        async activate(ctx) {
+          try {
+            await ctx.playback.setPlaybackRate?.(2);
+          } catch (err) {
+            deniedErr = err;
+          }
+        },
+      });
+      assert.ok(deniedErr instanceof PluginPermissionError);
+      assert.equal(hostRate, 1.5);
+    });
+
+    it('exposes plugin lifecycle methods, setPlaybackRate, and UI slot regions on mplay3r-app', () => {
       const appSource = fs.readFileSync(path.join(root, 'src', 'components', 'mplay3r-app', 'mplay3r-app.tsx'), 'utf8');
       for (const method of [
+        'setPlaybackRate',
         'getPluginHost',
         'registerPlugin',
         'enablePlugin',

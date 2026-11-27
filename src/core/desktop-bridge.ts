@@ -1,6 +1,14 @@
 import { resetStorageAdapter, setStorageAdapter } from './storage';
 import type { StorageAdapter } from './storage';
-import type { DesktopAppInfo, DesktopAudioFile, PlatformBridge } from './types';
+import type {
+  AudioTagPatch,
+  DesktopAppInfo,
+  DesktopAudioFile,
+  LanShareServerConfig,
+  LanShareServerStatus,
+  PlatformBridge,
+  WriteAudioTagsResult,
+} from './types';
 
 interface TauriInternals {
   invoke<T = unknown>(cmd: string, args?: Record<string, unknown>): Promise<T>;
@@ -74,6 +82,30 @@ export async function saveDesktopStateJson(json: string): Promise<boolean> {
   return Boolean(saved);
 }
 
+/** Starts the embedded native Rust LAN Share & SSE Listening Party server on Desktop. */
+export async function startLanShareServer(config: LanShareServerConfig): Promise<LanShareServerStatus | null> {
+  return invokeTauri<LanShareServerStatus>('start_lan_share_server', { config });
+}
+
+/** Stops the embedded native Rust LAN Share server if running. */
+export async function stopLanShareServer(): Promise<boolean> {
+  const stopped = await invokeTauri<boolean>('stop_lan_share_server');
+  return Boolean(stopped);
+}
+
+/** Queries the current running state, LAN URL, and library counts of the native LAN Share server. */
+export async function getLanShareStatus(): Promise<LanShareServerStatus | null> {
+  return invokeTauri<LanShareServerStatus>('get_lan_share_status');
+}
+
+/** Writes ID3v2.3 text tags (TIT2/TPE1/TALB) atomically to an explicitly authorized local MP3 file. */
+export async function writeDesktopAudioTags(
+  filePath: string,
+  tags: AudioTagPatch,
+): Promise<WriteAudioTagsResult | null> {
+  return invokeTauri<WriteAudioTagsResult>('write_audio_tags', { path: filePath, tags });
+}
+
 /** Creates a `PlatformBridge` backed by Tauri v2 IPC commands. */
 export function createTauriPlatformBridge(): PlatformBridge {
   return {
@@ -84,6 +116,10 @@ export function createTauriPlatformBridge(): PlatformBridge {
     resolveAudioPaths: resolveDesktopAudioPaths,
     pickPlaylistFile: pickDesktopPlaylistFile,
     savePlaylistFile: saveDesktopPlaylistFile,
+    startLanShareServer,
+    stopLanShareServer,
+    getLanShareStatus,
+    writeAudioTags: writeDesktopAudioTags,
   };
 }
 

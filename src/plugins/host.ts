@@ -354,6 +354,11 @@ export class PluginHost {
         requirePerm('playback-control');
         await this.adapter.playback.setVolume(volume);
       },
+      setPlaybackRate: async (rate: number) => {
+        requirePerm('playback-control');
+        await this.adapter.playback.setPlaybackRate?.(rate);
+      },
+      getPlaybackRate: () => this.adapter.playback.getPlaybackRate?.() ?? 1,
       getStatus: () => this.adapter.playback.getStatus(),
     };
 

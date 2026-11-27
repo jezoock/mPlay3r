@@ -1,5 +1,7 @@
+mod lan_server;
 mod portable;
 mod streaming;
+mod tags;
 
 use percent_encoding::{percent_decode_str, utf8_percent_encode, NON_ALPHANUMERIC};
 use serde::Serialize;
@@ -206,6 +208,48 @@ fn save_persisted_state(storage: State<'_, AppStorageState>, json: String) -> bo
     portable::write_state_file(&storage.data_dir, &json).is_ok()
 }
 
+#[tauri::command]
+fn start_lan_share_server(
+    config: lan_server::LanShareServerConfig,
+    manager: State<'_, lan_server::LanServerManager>,
+) -> Result<lan_server::LanShareServerStatus, String> {
+    manager.start(config)
+}
+
+#[tauri::command]
+fn stop_lan_share_server(manager: State<'_, lan_server::LanServerManager>) -> bool {
+    manager.stop()
+}
+
+#[tauri::command]
+fn get_lan_share_status(
+    manager: State<'_, lan_server::LanServerManager>,
+) -> lan_server::LanShareServerStatus {
+    manager.status()
+}
+
+fn write_audio_tags_authorized(
+    raw_path: &Path,
+    patch: &tags::AudioTagPatch,
+    allowlist: &AllowedPaths,
+) -> Result<tags::WriteAudioTagsResult, String> {
+    let canonical = fs::canonicalize(raw_path)
+        .map_err(|_| "Audio file not found or inaccessible.".to_string())?;
+    if !is_path_authorized(&canonical, allowlist) {
+        return Err("Access denied: file is not in the authorized audio allowlist.".to_string());
+    }
+    tags::write_mp3_id3v2_tags(&canonical, patch)
+}
+
+#[tauri::command]
+fn write_audio_tags(
+    path: String,
+    tags: crate::tags::AudioTagPatch,
+    allowlist: State<'_, AllowedPaths>,
+) -> Result<crate::tags::WriteAudioTagsResult, String> {
+    write_audio_tags_authorized(Path::new(&path), &tags, &allowlist)
+}
+
 fn handle_stream_request(
     app: &tauri::AppHandle,
     request: tauri::http::Request<Vec<u8>>,
@@ -292,6 +336,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(AllowedPaths(Mutex::new(HashSet::new())))
+        .manage(lan_server::LanServerManager::default())
         .register_uri_scheme_protocol("mplay3r", |ctx, request| {
             handle_stream_request(ctx.app_handle(), request)
         })
@@ -316,7 +361,11 @@ pub fn run() {
             pick_playlist_file,
             save_playlist_file,
             load_persisted_state,
-            save_persisted_state
+            save_persisted_state,
+            start_lan_share_server,
+            stop_lan_share_server,
+            get_lan_share_status,
+            write_audio_tags
         ])
         .run(tauri::generate_context!())
         .expect("error while running mPlay3r desktop application");
@@ -363,6 +412,37 @@ mod tests {
         let traversal = dir.join("..").join(dir.file_name().unwrap()).join("demo.flac");
         assert!(!is_path_authorized(&traversal, &allowlist));
         assert!(!is_path_authorized(Path::new("/etc/passwd"), &allowlist));
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn write_audio_tags_enforces_allowlist_strictly() {
+        let dir = temp_dir("tag_allowlist");
+        let mp3 = dir.join("song.mp3");
+        fs::write(&mp3, b"\xff\xfb\x90\x00AUDIO").unwrap();
+        let allowlist = AllowedPaths(Mutex::new(HashSet::new()));
+
+        let patch = tags::AudioTagPatch {
+            title: Some("Digital Love".to_string()),
+            artist: Some("Daft Punk".to_string()),
+            album: Some("Discovery".to_string()),
+        };
+
+        // Must fail before the file is explicitly authorized via picker/resolve.
+        let denied = write_audio_tags_authorized(&mp3, &patch, &allowlist);
+        assert!(denied.is_err());
+
+        // Authorize the file and retry: must succeed atomically.
+        authorize_audio_path(&mp3, &allowlist).expect("should authorize mp3");
+        let ok = write_audio_tags_authorized(&mp3, &patch, &allowlist)
+            .expect("authorized mp3 should accept ID3v2.3 write");
+        assert_eq!(ok.updated_frames, vec!["TIT2", "TPE1", "TALB"]);
+
+        let decoded = tags::decode_id3v2_tags(&fs::read(&mp3).unwrap());
+        assert_eq!(decoded.title.as_deref(), Some("Digital Love"));
+        assert_eq!(decoded.artist.as_deref(), Some("Daft Punk"));
+        assert_eq!(decoded.album.as_deref(), Some("Discovery"));
 
         let _ = fs::remove_dir_all(&dir);
     }

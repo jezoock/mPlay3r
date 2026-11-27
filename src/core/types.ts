@@ -66,6 +66,7 @@ export interface PlayerSnapshot {
   volume: number;
   muted: boolean;
   balance: number;
+  playbackRate?: number;
   shuffle: boolean;
   repeat: RepeatMode;
   showRemaining: boolean;
@@ -81,6 +82,7 @@ export interface PersistedState {
   volume: number;
   muted: boolean;
   balance: number;
+  playbackRate?: number;
   shuffle: boolean;
   repeat: RepeatMode;
   showRemaining: boolean;
@@ -106,7 +108,37 @@ export interface DesktopAudioFile {
   name: string;
 }
 
-/** Optional native desktop platform bridge (implemented by Tauri v2 in PR #6; omitted on Web/Embed). */
+export interface LanShareServerConfig {
+  serverName: string;
+  port: number;
+  bindAddress: string;
+  sharedFolders: string[];
+  pin: string;
+  bearerToken: string;
+}
+
+export interface LanShareServerStatus {
+  running: boolean;
+  url?: string;
+  serverName?: string;
+  port?: number;
+  folderCount?: number;
+  trackCount?: number;
+}
+
+export interface AudioTagPatch {
+  title?: string;
+  artist?: string;
+  album?: string;
+}
+
+export interface WriteAudioTagsResult {
+  path: string;
+  updatedFrames: string[];
+  bytesWritten: number;
+}
+
+/** Optional native desktop platform bridge (implemented by Tauri v2 in PR #6 / PR #18; omitted on Web/Embed). */
 export interface PlatformBridge {
   isDesktop(): boolean;
   getAppInfo(): Promise<DesktopAppInfo>;
@@ -115,4 +147,8 @@ export interface PlatformBridge {
   resolveAudioPaths(paths: string[]): Promise<DesktopAudioFile[] | null>;
   pickPlaylistFile(): Promise<{ name: string; content: string } | null>;
   savePlaylistFile(content: string, defaultName?: string): Promise<boolean>;
+  startLanShareServer?(config: LanShareServerConfig): Promise<LanShareServerStatus | null>;
+  stopLanShareServer?(): Promise<boolean>;
+  getLanShareStatus?(): Promise<LanShareServerStatus | null>;
+  writeAudioTags?(filePath: string, tags: AudioTagPatch): Promise<WriteAudioTagsResult | null>;
 }

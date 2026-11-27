@@ -99,6 +99,7 @@ export class MPlay3rApp {
   @State() volume = 0.85;
   @State() muted = false;
   @State() balance = 0;
+  @State() playbackRate = 1;
   @State() shuffle = false;
   @State() repeat: RepeatMode = 'off';
   @State() showRemaining = false;
@@ -222,6 +223,8 @@ export class MPlay3rApp {
         previous: () => this.previous(),
         seek: seconds => this.seek(seconds),
         setVolume: volume => this.setVolume(volume),
+        setPlaybackRate: rate => this.setPlaybackRate(rate),
+        getPlaybackRate: () => this.playbackRate,
         getStatus: () => this.status,
       },
       playlist: {
@@ -241,6 +244,7 @@ export class MPlay3rApp {
     } else {
       this.engine.setVolume(this.volume);
       this.engine.setBalance(this.balance);
+      this.engine.setPlaybackRate(this.playbackRate);
     }
 
     const bridge = this.getPlatform();
@@ -342,6 +346,14 @@ export class MPlay3rApp {
   @Method()
   async setBalance(balance: number): Promise<void> {
     this.balance = this.engine.setBalance(Number(balance));
+    this.schedulePersist();
+    this.emitState();
+  }
+
+  /** Sets playback speed (`0.5×`–`2×`) with pitch preservation; invoked directly by Podcast/Broadcast plugins or `<ds-trigger>`. */
+  @Method()
+  async setPlaybackRate(rate: number): Promise<void> {
+    this.playbackRate = this.engine.setPlaybackRate(Number(rate));
     this.schedulePersist();
     this.emitState();
   }
@@ -932,6 +944,7 @@ export class MPlay3rApp {
     this.volume = this.engine.setVolume(saved.volume);
     this.muted = this.engine.setMuted(saved.muted);
     this.balance = this.engine.setBalance(saved.balance);
+    this.playbackRate = this.engine.setPlaybackRate(saved.playbackRate ?? 1);
     this.shuffle = this.playlist.setShuffle(saved.shuffle);
     this.repeat = this.playlist.setRepeat(saved.repeat);
     this.showRemaining = saved.showRemaining;
@@ -1001,6 +1014,7 @@ export class MPlay3rApp {
         volume: this.volume,
         muted: this.muted,
         balance: this.balance,
+        playbackRate: this.playbackRate,
         shuffle: this.shuffle,
         repeat: this.repeat,
         showRemaining: this.showRemaining,
@@ -1036,6 +1050,7 @@ export class MPlay3rApp {
       volume: this.volume,
       muted: this.muted,
       balance: this.balance,
+      playbackRate: this.playbackRate,
       shuffle: this.shuffle,
       repeat: this.repeat,
       showRemaining: this.showRemaining,

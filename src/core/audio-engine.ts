@@ -15,6 +15,12 @@ export interface AudioEngineDeps {
   createAudioContext?: () => AudioContext;
 }
 
+/** Minimum supported audio playback rate (0.5×). */
+export const MIN_PLAYBACK_RATE = 0.5;
+
+/** Maximum supported audio playback rate (2.0×). */
+export const MAX_PLAYBACK_RATE = 2;
+
 /** Converts gain in decibels to linear Web Audio gain multiplier. */
 export function dbToLinearGain(db: number): number {
   return Math.pow(10, clamp(db, EQ_MIN_DB, EQ_MAX_DB) / 20);
@@ -46,6 +52,7 @@ export class AudioEngine {
   private volume = 0.85;
   private muted = false;
   private balance = 0;
+  private playbackRate = 1;
   private equalizer: EqualizerState = {
     ...DEFAULT_EQUALIZER_STATE,
     bands: [...DEFAULT_EQUALIZER_STATE.bands],
@@ -69,6 +76,7 @@ export class AudioEngine {
 
     this.audio = deps.createAudioElement ? deps.createAudioElement() : new Audio();
     this.audio.preload = 'metadata';
+    this.applyPlaybackRate();
     this.bindAudioEvents();
   }
 
@@ -86,6 +94,10 @@ export class AudioEngine {
 
   getBalance(): number {
     return this.balance;
+  }
+
+  getPlaybackRate(): number {
+    return this.playbackRate;
   }
 
   getEqualizerState(): EqualizerState {
@@ -136,6 +148,7 @@ export class AudioEngine {
     }
     this.audio.src = src;
     this.audio.load();
+    this.applyPlaybackRate();
     this.setStatus('loading');
   }
 
@@ -156,6 +169,7 @@ export class AudioEngine {
       }
     }
 
+    this.applyPlaybackRate();
     try {
       await this.audio.play();
       this.setStatus('playing');
@@ -219,6 +233,14 @@ export class AudioEngine {
     this.balance = clamp(balance, -1, 1);
     this.applyGainAndPan();
     return this.balance;
+  }
+
+  /** Sets playback speed in the [0.5, 2] range while preserving vocal/musical pitch. */
+  setPlaybackRate(rate: number): number {
+    const safe = Number.isFinite(rate) ? clamp(rate, MIN_PLAYBACK_RATE, MAX_PLAYBACK_RATE) : 1;
+    this.playbackRate = Math.round(safe * 100) / 100;
+    this.applyPlaybackRate();
+    return this.playbackRate;
   }
 
   setEqualizerEnabled(enabled: boolean): EqualizerState {
@@ -385,6 +407,27 @@ export class AudioEngine {
     }
   }
 
+  private applyPlaybackRate(): void {
+    const media = this.audio as HTMLAudioElement & {
+      preservesPitch: boolean;
+      mozPreservesPitch?: boolean;
+      webkitPreservesPitch?: boolean;
+    };
+    try {
+      media.defaultPlaybackRate = this.playbackRate;
+      media.playbackRate = this.playbackRate;
+      media.preservesPitch = true;
+      if ('mozPreservesPitch' in media) {
+        media.mozPreservesPitch = true;
+      }
+      if ('webkitPreservesPitch' in media) {
+        media.webkitPreservesPitch = true;
+      }
+    } catch {
+      // Ignore playbackRate assignment errors in restricted environments.
+    }
+  }
+
   private detectMatchingPreset(): string {
     const isFlat = Math.abs(this.equalizer.preamp) < 0.05 && this.equalizer.bands.every(v => Math.abs(v) < 0.05);
     return isFlat ? 'flat' : 'custom';
@@ -410,6 +453,7 @@ export class AudioEngine {
       }
     });
     this.audio.addEventListener('loadedmetadata', () => {
+      this.applyPlaybackRate();
       const duration = this.getDuration();
       if (duration > 0) {
         this.callbacks.onDurationChange?.(duration);

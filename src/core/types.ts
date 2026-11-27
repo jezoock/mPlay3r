@@ -105,3 +105,14 @@ export interface DesktopAudioFile {
   url: string;
   name: string;
 }
+
+/** Optional native desktop platform bridge (implemented by Tauri v2 in PR #6; omitted on Web/Embed). */
+export interface PlatformBridge {
+  isDesktop(): boolean;
+  getAppInfo(): Promise<DesktopAppInfo>;
+  pickAudioFiles(): Promise<DesktopAudioFile[] | null>;
+  pickAudioFolder(): Promise<DesktopAudioFile[] | null>;
+  resolveAudioPaths(paths: string[]): Promise<DesktopAudioFile[] | null>;
+  pickPlaylistFile(): Promise<{ name: string; content: string } | null>;
+  savePlaylistFile(content: string, defaultName?: string): Promise<boolean>;
+}

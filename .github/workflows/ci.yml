@@ -16,11 +16,31 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: npm install
-      - name: Build CSS (strict) & Stencil targets (www, dist, custom elements)
+      - name: Build CSS (strict)
         run: |
           npm run clean
-          npm run build:css -- --strict
-          npm run build:web
+          set +e
+          out=$(npm run build:css -- --strict 2>&1)
+          code=$?
+          printf '%s\n' "$out"
+          if [ $code -ne 0 ]; then
+            msg=$(printf '%s\n' "$out" | tail -n 80)
+            msg="${msg//'%'/'%25'}"; msg="${msg//$'\r'/'%0D'}"; msg="${msg//$'\n'/'%0A'}"
+            printf '::error title=Build CSS failed::%s\n' "$msg"
+            exit $code
+          fi
+      - name: Build Stencil targets (www, dist, custom elements)
+        run: |
+          set +e
+          out=$(npm run build:web 2>&1)
+          code=$?
+          printf '%s\n' "$out"
+          if [ $code -ne 0 ]; then
+            msg=$(printf '%s\n' "$out" | tail -n 80)
+            msg="${msg//'%'/'%25'}"; msg="${msg//$'\r'/'%0D'}"; msg="${msg//$'\n'/'%0A'}"
+            printf '::error title=Build Stencil failed::%s\n' "$msg"
+            exit $code
+          fi
       - name: Verify build outputs
         run: |
           test -s dist/css/minimal.css
@@ -29,10 +49,50 @@ jobs:
           test -s dist/components/index.js
           ls -lh dist/css/minimal.css www/build/mplay3r.esm.js
       - name: Typecheck
-        run: npm run typecheck
+        run: |
+          set +e
+          out=$(npm run typecheck 2>&1)
+          code=$?
+          printf '%s\n' "$out"
+          if [ $code -ne 0 ]; then
+            msg=$(printf '%s\n' "$out" | tail -n 80)
+            msg="${msg//'%'/'%25'}"; msg="${msg//$'\r'/'%0D'}"; msg="${msg//$'\n'/'%0A'}"
+            printf '::error title=Typecheck failed::%s\n' "$msg"
+            exit $code
+          fi
       - name: Lint TypeScript
-        run: npm run lint
+        run: |
+          set +e
+          out=$(npm run lint 2>&1)
+          code=$?
+          printf '%s\n' "$out"
+          if [ $code -ne 0 ]; then
+            msg=$(printf '%s\n' "$out" | tail -n 80)
+            msg="${msg//'%'/'%25'}"; msg="${msg//$'\r'/'%0D'}"; msg="${msg//$'\n'/'%0A'}"
+            printf '::error title=Lint TypeScript failed::%s\n' "$msg"
+            exit $code
+          fi
       - name: Lint SCSS
-        run: npm run lint:css
+        run: |
+          set +e
+          out=$(npm run lint:css 2>&1)
+          code=$?
+          printf '%s\n' "$out"
+          if [ $code -ne 0 ]; then
+            msg=$(printf '%s\n' "$out" | tail -n 80)
+            msg="${msg//'%'/'%25'}"; msg="${msg//$'\r'/'%0D'}"; msg="${msg//$'\n'/'%0A'}"
+            printf '::error title=Lint SCSS failed::%s\n' "$msg"
+            exit $code
+          fi
       - name: Run unit tests
-        run: npm test
+        run: |
+          set +e
+          out=$(npm test 2>&1)
+          code=$?
+          printf '%s\n' "$out"
+          if [ $code -ne 0 ]; then
+            msg=$(printf '%s\n' "$out" | tail -n 80)
+            msg="${msg//'%'/'%25'}"; msg="${msg//$'\r'/'%0D'}"; msg="${msg//$'\n'/'%0A'}"
+            printf '::error title=Unit tests failed::%s\n' "$msg"
+            exit $code
+          fi

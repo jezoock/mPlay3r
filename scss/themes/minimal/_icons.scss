@@ -1,0 +1,52 @@
+@use './tokens' as *;
+
+// Only the exact icon types used by mPlay3r are emitted so CSS weight stays minimal.
+$-mp-icon-types: (
+  play: play,
+  pause: pause,
+  stop: stop,
+  skip-back: skip-back,
+  skip-forward: to-end,
+  eject: eject,
+  shuffle: shuffle,
+  repeat: repeat,
+  repeat-one: repeat-one,
+  volume-high: volume-high,
+  volume-low: volume-low,
+  volume-mute: volume-mute,
+  sliders: sliders,
+  playlist: playlist,
+  music: music,
+  plus: plus,
+  folder-open: folder-open,
+  upload: upload-cloud,
+  download: download-cloud,
+  delete: trash,
+  cancel: cancel,
+  search: search,
+  arrow-up: angle-up,
+  arrow-down: angle-down,
+);
+
+ds-icon {
+  --ds-icon-size: 1em;
+  --ds-icon-color: currentColor;
+}
+
+.ds-icon {
+  display: inline-block;
+  font-size: var(--ds-icon-size);
+  color: var(--ds-icon-color);
+  line-height: 1;
+  vertical-align: middle;
+
+  &::before {
+    @include ds-icon(null, block);
+  }
+
+  @each $type, $icon in $-mp-icon-types {
+    &.--#{$type}::before {
+      @include ds-icon-content($icon);
+    }
+  }
+}

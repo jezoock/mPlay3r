@@ -63,6 +63,7 @@
     "build:css": "node scripts/build-css.mjs",
     "build:web": "stencil build",
     "build": "npm run clean && npm run build:css && npm run build:web",
+    "tauri": "tauri",
     "desktop:dev": "tauri dev",
     "desktop:build": "npm run build && tauri build",
     "clean": "node -e \"for (const dir of ['dist', 'www', '.stencil', 'loader']) require('fs').rmSync(dir, { recursive: true, force: true })\"",

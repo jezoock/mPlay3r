@@ -67,7 +67,7 @@ export class MpEqualizer {
     if (select.value !== targetVal) {
       this.syncingSelect = true;
       select.value = targetVal;
-      select.dispatchEvent(new Event('change', { bubbles: false }));
+      select.dispatchEvent(new window.Event('change', { bubbles: false }));
       this.syncingSelect = false;
     }
   }

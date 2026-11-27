@@ -1,0 +1,167 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { afterEach, describe, it } from 'node:test';
+import { fileURLToPath } from 'node:url';
+import {
+  createTauriPlatformBridge,
+  getDefaultPlatformBridge,
+  getDesktopAppInfo,
+  initDesktopRuntime,
+  isDesktopRuntime,
+  pickDesktopAudioFiles,
+  pickDesktopAudioFolder,
+  pickDesktopPlaylistFile,
+  resetDesktopRuntime,
+  resolveDesktopAudioPaths,
+  saveDesktopPlaylistFile,
+} from '../src/core/desktop-bridge';
+import { createDefaultPersistedState, loadPersistedState, savePersistedState } from '../src/core/storage';
+
+const root = fileURLToPath(new URL('..', import.meta.url));
+const originalWindow = (globalThis as { window?: unknown }).window;
+
+function installMockTauri(invoke: (cmd: string, args?: Record<string, unknown>) => Promise<unknown>): void {
+  (globalThis as { window?: unknown }).window = {
+    __TAURI_INTERNALS__: { invoke },
+  };
+}
+
+function uninstallMockWindow(): void {
+  if (originalWindow === undefined) {
+    delete (globalThis as { window?: unknown }).window;
+  } else {
+    (globalThis as { window?: unknown }).window = originalWindow;
+  }
+}
+
+afterEach(() => {
+  resetDesktopRuntime();
+  uninstallMockWindow();
+});
+
+describe('PR #6 Tauri v2 desktop bridge & packaging', () => {
+  it('returns safe Web fallbacks when __TAURI_INTERNALS__ is absent', async () => {
+    uninstallMockWindow();
+    assert.equal(isDesktopRuntime(), false);
+    assert.equal(initDesktopRuntime(), false);
+    assert.equal(getDefaultPlatformBridge(), undefined);
+
+    assert.deepEqual(await getDesktopAppInfo(), { isDesktop: false, isPortable: false });
+    assert.equal(await pickDesktopAudioFiles(), null);
+    assert.equal(await pickDesktopAudioFolder(), null);
+    assert.deepEqual(await resolveDesktopAudioPaths([]), []);
+    assert.equal(await resolveDesktopAudioPaths(['/music/a.flac']), null);
+    assert.equal(await pickDesktopPlaylistFile(), null);
+    assert.equal(await saveDesktopPlaylistFile('#EXTM3U\n'), false);
+  });
+
+  it('invokes every Tauri v2 IPC command with the expected arguments and wires PlatformBridge + StorageAdapter', async () => {
+    const calls: Array<{ cmd: string; args?: Record<string, unknown> }> = [];
+    let persistedJson: string | null = null;
+
+    installMockTauri(async (cmd, args) => {
+      calls.push({ cmd, args });
+      switch (cmd) {
+        case 'get_app_info':
+          return { isDesktop: true, isPortable: true, dataDir: '/usb/mPlay3r/data', version: '0.1.0' };
+        case 'pick_audio_files':
+          return [{ path: '/music/01.flac', url: 'mplay3r://localhost/%2Fmusic%2F01.flac', name: '01.flac' }];
+        case 'pick_audio_folder':
+          return [{ path: '/music/album/02.mp3', url: 'mplay3r://localhost/%2Fmusic%2Falbum%2F02.mp3', name: '02.mp3' }];
+        case 'resolve_audio_paths':
+          return [{ path: '/music/saved.ogg', url: 'mplay3r://localhost/%2Fmusic%2Fsaved.ogg', name: 'saved.ogg' }];
+        case 'pick_playlist_file':
+          return { name: 'mix.m3u8', content: '#EXTM3U\n/music/saved.ogg\n' };
+        case 'save_playlist_file':
+          return true;
+        case 'save_persisted_state':
+          persistedJson = String(args?.json ?? '');
+          return true;
+        case 'load_persisted_state':
+          return persistedJson;
+        default:
+          throw new Error(`Unexpected IPC command: ${cmd}`);
+      }
+    });
+
+    assert.equal(isDesktopRuntime(), true);
+    assert.equal(initDesktopRuntime(), true);
+
+    const bridge = getDefaultPlatformBridge() ?? createTauriPlatformBridge();
+    assert.equal(bridge.isDesktop(), true);
+
+    const info = await bridge.getAppInfo();
+    assert.deepEqual(info, { isDesktop: true, isPortable: true, dataDir: '/usb/mPlay3r/data', version: '0.1.0' });
+
+    const files = await bridge.pickAudioFiles();
+    assert.equal(files?.length, 1);
+    assert.equal(files?.[0].name, '01.flac');
+
+    const folderFiles = await bridge.pickAudioFolder();
+    assert.equal(folderFiles?.[0].name, '02.mp3');
+
+    assert.deepEqual(await bridge.resolveAudioPaths([]), []);
+    const resolved = await bridge.resolveAudioPaths(['/music/saved.ogg']);
+    assert.equal(resolved?.[0].url, 'mplay3r://localhost/%2Fmusic%2Fsaved.ogg');
+
+    const pickedPl = await bridge.pickPlaylistFile();
+    assert.equal(pickedPl?.name, 'mix.m3u8');
+
+    const exported = await bridge.savePlaylistFile('#EXTM3U\n', 'portable.m3u8');
+    assert.equal(exported, true);
+
+    // Verify StorageAdapter was automatically switched to Tauri portable JSON persistence.
+    const state = { ...createDefaultPersistedState(), volume: 0.42, palette: 'amber' as const };
+    await savePersistedState(state);
+    assert.ok(persistedJson?.includes('"amber"'));
+    const restored = await loadPersistedState();
+    assert.equal(restored.volume, 0.42);
+    assert.equal(restored.palette, 'amber');
+
+    const invokedNames = calls.map(c => c.cmd);
+    assert.deepEqual(invokedNames, [
+      'get_app_info',
+      'pick_audio_files',
+      'pick_audio_folder',
+      'resolve_audio_paths',
+      'pick_playlist_file',
+      'save_playlist_file',
+      'save_persisted_state',
+      'load_persisted_state',
+    ]);
+    assert.deepEqual(calls[3].args, { paths: ['/music/saved.ogg'] });
+    assert.deepEqual(calls[5].args, { content: '#EXTM3U\n', defaultName: 'portable.m3u8' });
+  });
+
+  it('ships valid Tauri v2 configuration, least-privilege capabilities, icons, and size-optimized Cargo profile', () => {
+    const tauriDir = path.join(root, 'src-tauri');
+    const conf = JSON.parse(fs.readFileSync(path.join(tauriDir, 'tauri.conf.json'), 'utf8')) as {
+      productName: string;
+      build: { frontendDist: string };
+      app: { security: { csp: string } };
+      bundle: { icon: string[] };
+    };
+
+    assert.equal(conf.productName, 'mPlay3r');
+    assert.equal(conf.build.frontendDist, '../www');
+    assert.ok(conf.app.security.csp.includes('mplay3r:'), 'CSP must allow mplay3r:// custom audio protocol');
+    for (const iconRel of conf.bundle.icon) {
+      const full = path.join(tauriDir, iconRel);
+      assert.ok(fs.existsSync(full) && fs.statSync(full).size > 0, `Missing Tauri icon: src-tauri/${iconRel}`);
+    }
+
+    const cap = JSON.parse(fs.readFileSync(path.join(tauriDir, 'capabilities', 'default.json'), 'utf8')) as {
+      windows: string[];
+      permissions: string[];
+    };
+    assert.deepEqual(cap.windows, ['main']);
+    assert.ok(cap.permissions.includes('core:default'));
+    assert.ok(cap.permissions.includes('dialog:default'));
+
+    const cargoToml = fs.readFileSync(path.join(tauriDir, 'Cargo.toml'), 'utf8');
+    assert.match(cargoToml, /opt-level\s*=\s*"s"/, 'Release profile must optimize for minimal binary size');
+    assert.match(cargoToml, /lto\s*=\s*true/, 'Release profile must enable LTO');
+    assert.match(cargoToml, /strip\s*=\s*true/, 'Release profile must strip debug symbols');
+  });
+});

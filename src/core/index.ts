@@ -6,3 +6,4 @@ export * from './playlist-io';
 export * from './playlist-store';
 export * from './audio-engine';
 export * from './storage';
+export * from './desktop-bridge';

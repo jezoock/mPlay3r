@@ -113,3 +113,45 @@ jobs:
             printf '::error title=Unit tests failed::%s\n' "$msg"
             exit $code
           fi
+
+  desktop:
+    name: Desktop Tauri v2 (Rust Check & Tests)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+      - name: Install Linux Tauri v2 system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+      - name: Prepare minimal frontendDist placeholder for Tauri compile check
+        run: |
+          mkdir -p www
+          printf '<!doctype html><title>mPlay3r</title>\n' > www/index.html
+      - name: Run Rust unit tests (portable, HTTP Range streaming, allowlist)
+        run: |
+          set +e
+          out=$(cargo test --manifest-path src-tauri/Cargo.toml 2>&1)
+          code=$?
+          printf '%s\n' "$out"
+          if [ $code -ne 0 ]; then
+            msg=$(printf '%s\n' "$out" | tail -n 80)
+            msg="${msg//'%'/'%25'}"; msg="${msg//$'\r'/'%0D'}"; msg="${msg//$'\n'/'%0A'}"
+            printf '::error title=Rust cargo test failed::%s\n' "$msg"
+            exit $code
+          fi
+      - name: Verify Rust release-ready targets compile cleanly
+        run: |
+          set +e
+          out=$(cargo check --manifest-path src-tauri/Cargo.toml --all-targets 2>&1)
+          code=$?
+          printf '%s\n' "$out"
+          if [ $code -ne 0 ]; then
+            msg=$(printf '%s\n' "$out" | tail -n 80)
+            msg="${msg//'%'/'%25'}"; msg="${msg//$'\r'/'%0D'}"; msg="${msg//$'\n'/'%0A'}"
+            printf '::error title=Rust cargo check failed::%s\n' "$msg"
+            exit $code
+          fi

@@ -6,11 +6,11 @@
     <meta name="description" content="mPlay3r — Lightweight Winamp-inspired audio player built with StencilJS, dot-stash, and Tauri v2." />
     <meta name="theme-color" content="#0e1116" />
     <title>mPlay3r</title>
-    <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
-    <link rel="manifest" href="/manifest.webmanifest" />
-    <link rel="stylesheet" href="/css/minimal.css" />
-    <link rel="stylesheet" href="/css/app.css" />
-    <script type="module" src="/build/mplay3r.esm.js"></script>
+    <link rel="icon" type="image/svg+xml" href="./icons/icon.svg" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="stylesheet" href="./css/minimal.css" />
+    <link rel="stylesheet" href="./css/app.css" />
+    <script type="module" src="./build/mplay3r.esm.js"></script>
   </head>
   <body class="mp-page">
     <main class="mp-stage">
@@ -26,13 +26,14 @@
         <span><kbd>M</kbd> Mute</span>
         <span><kbd>←</kbd><kbd>→</kbd> Seek</span>
         <span><kbd>↑</kbd><kbd>↓</kbd> Volume</span>
+        <a href="./embed-demo.html" style="color: inherit; text-decoration: underline">Embed Demo</a>
       </footer>
     </main>
 
     <script>
       if ('serviceWorker' in navigator && !window.__TAURI_INTERNALS__ && /^https?:$/.test(location.protocol)) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').catch(() => {});
+          navigator.serviceWorker.register('./sw.js').catch(() => {});
         });
       }
     </script>

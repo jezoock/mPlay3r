@@ -10,8 +10,53 @@ permissions:
   contents: write
 
 jobs:
+  release-web-embed:
+    name: Package Web/PWA & Embed Bundles
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install
+      - name: Verify release readiness & tests
+        run: |
+          npm run check:release
+          npm run build
+          npm run check:size
+          npm test
+      - name: Package Web/PWA & Embed archives with SHA-256 checksums
+        run: |
+          VERSION="${GITHUB_REF_NAME:-v$(node -p "require('./package.json').version")}"
+          mkdir -p release-assets
+          tar -czf "release-assets/mPlay3r-web-pwa-${VERSION}.tar.gz" -C www .
+          tar -czf "release-assets/mPlay3r-embed-${VERSION}.tar.gz" dist loader package.json README.md LICENSE CHANGELOG.md
+          (cd release-assets && sha256sum *.tar.gz > "SHA256SUMS-web-${VERSION}.txt")
+          ls -lh release-assets
+      - name: Upload Web & Embed release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mPlay3r-web-and-embed
+          path: release-assets/*
+      - name: Publish draft GitHub Release with Web/Embed assets
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" release-assets/* \
+              --draft \
+              --title "mPlay3r ${TAG}" \
+              --notes-file CHANGELOG.md
+          else
+            gh release upload "$TAG" release-assets/* --clobber
+          fi
+
   build-desktop:
     name: Build Desktop (${{ matrix.platform }})
+    needs: release-web-embed
     strategy:
       fail-fast: false
       matrix:
@@ -48,7 +93,7 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'mPlay3r ${{ github.ref_name }}'
-          releaseBody: 'Portable, installable, and web builds of mPlay3r.'
+          releaseBody: 'Portable, installable, and web builds of mPlay3r. See CHANGELOG.md for details.'
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
@@ -56,13 +101,19 @@ jobs:
         if: matrix.platform == 'windows-latest'
         shell: pwsh
         run: |
+          $ver = if ($env:GITHUB_REF_NAME) { $env:GITHUB_REF_NAME } else { "v0.1.0" }
           New-Item -ItemType Directory -Force -Path portable-stage | Out-Null
           Copy-Item src-tauri/target/release/mplay3r.exe portable-stage/mPlay3r.exe
           New-Item -ItemType File -Force -Path portable-stage/portable.flag | Out-Null
-          Compress-Archive -Path portable-stage/* -DestinationPath mPlay3r-windows-portable.zip
+          Compress-Archive -Path portable-stage/* -DestinationPath "mPlay3r-windows-portable-$ver.zip"
       - name: Upload portable zip artifact
         if: matrix.platform == 'windows-latest'
         uses: actions/upload-artifact@v4
         with:
           name: mPlay3r-windows-portable
-          path: mPlay3r-windows-portable.zip
+          path: mPlay3r-windows-portable-*.zip
+      - name: Attach Windows portable zip to GitHub Release
+        if: matrix.platform == 'windows-latest' && startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ github.ref_name }}" mPlay3r-windows-portable-*.zip --clobber

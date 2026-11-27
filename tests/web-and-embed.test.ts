@@ -138,11 +138,11 @@ describe('PR #5 Web / PWA & Embeddable Web Component', () => {
 
       assert.equal(manifest.name, 'mPlay3r');
       assert.equal(manifest.short_name, 'mPlay3r');
-      assert.equal(manifest.start_url, '/');
+      assert.equal(manifest.start_url, './');
       assert.equal(manifest.display, 'standalone');
       assert.ok(Array.isArray(manifest.icons) && manifest.icons.length >= 1, 'Manifest must declare at least one icon');
 
-      const iconRel = manifest.icons[0].src.replace(/^\//, '');
+      const iconRel = manifest.icons[0].src.replace(/^\.?\//, '');
       const iconPath = path.join(srcDir, iconRel);
       assert.ok(fs.existsSync(iconPath), `Manifest icon not found at src/${iconRel}`);
       const svg = readText(iconPath);
@@ -152,9 +152,9 @@ describe('PR #5 Web / PWA & Embeddable Web Component', () => {
 
     it('wires favicon, manifest, and Tauri-safe service worker registration in src/index.html and valid src/sw.js', () => {
       const indexHtml = readText(path.join(srcDir, 'index.html'));
-      assert.ok(indexHtml.includes('href="/icons/icon.svg"'), 'index.html must link the SVG favicon');
-      assert.ok(indexHtml.includes('href="/manifest.webmanifest"'), 'index.html must link manifest.webmanifest');
-      assert.ok(indexHtml.includes("register('/sw.js')"), 'index.html must register /sw.js');
+      assert.ok(indexHtml.includes('href="./icons/icon.svg"'), 'index.html must link the SVG favicon via relative path');
+      assert.ok(indexHtml.includes('href="./manifest.webmanifest"'), 'index.html must link manifest.webmanifest via relative path');
+      assert.ok(indexHtml.includes("register('./sw.js')"), 'index.html must register ./sw.js via relative path');
       assert.ok(indexHtml.includes('__TAURI_INTERNALS__'), 'Service worker registration must be skipped inside Tauri desktop');
 
       const swSource = readText(path.join(srcDir, 'sw.js'));

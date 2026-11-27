@@ -65,6 +65,18 @@ jobs:
             printf '::error title=Bundle weight budget failed::%s\n' "$msg"
             exit $code
           fi
+      - name: Check release readiness & GitHub Pages subpath safety
+        run: |
+          set +e
+          out=$(npm run check:release 2>&1)
+          code=$?
+          printf '%s\n' "$out"
+          if [ $code -ne 0 ]; then
+            msg=$(printf '%s\n' "$out" | tail -n 80)
+            msg="${msg//'%'/'%25'}"; msg="${msg//$'\r'/'%0D'}"; msg="${msg//$'\n'/'%0A'}"
+            printf '::error title=Release readiness check failed::%s\n' "$msg"
+            exit $code
+          fi
       - name: Typecheck
         run: |
           set +e

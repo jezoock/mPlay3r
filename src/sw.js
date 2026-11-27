@@ -2,7 +2,7 @@
 // Intentionally skips range requests, audio files, blob:/mplay3r: URLs, and cross-origin traffic.
 
 const CACHE_NAME = 'mplay3r-shell-v1';
-const SHELL_ASSETS = ['/', '/css/minimal.css', '/css/app.css', '/manifest.webmanifest', '/icons/icon.svg'];
+const SHELL_ASSETS = ['./', './css/minimal.css', './css/app.css', './manifest.webmanifest', './icons/icon.svg'];
 const AUDIO_EXT_RE = /\.(?:mp3|flac|wav|ogg|oga|opus|m4a|aac|webm|weba)$/i;
 
 self.addEventListener('install', event => {
@@ -48,7 +48,7 @@ self.addEventListener('fetch', event => {
           }
           return response;
         })
-        .catch(() => caches.match(request).then(cached => cached || caches.match('/'))),
+        .catch(() => caches.match(request).then(cached => cached || caches.match('./'))),
     );
     return;
   }

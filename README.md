@@ -21,10 +21,17 @@ One tiny codebase produces:
 
 ---
 
-## Project Roadmap
+## Live Demo & Official Addons
 
-- **Phase 1 (current)**: Base player without plugins or scraping — transport, playlist, 10-band EQ, minimalist theme with 5 color palettes, Web + Embeddable Web Component + Tauri v2 Desktop (portable & installable).
-- **Phase 2 (next)**: Integrated plugin & theme store, downloadable visualizer plugins (Canvas/WebGL/GLSL), metadata scraping plugins, DSP AudioWorklet plugins, radical full-layout themes, and Winamp `.wsz` skin loader plugin. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+- **Standalone Web App / PWA (GitHub Pages)**: `https://jezoock.github.io/mPlay3r/`
+- **Multi-Instance Embed & `ds-trigger` Demo**: `https://jezoock.github.io/mPlay3r/embed-demo.html`
+- **Official Addons & SHA-256 Registry**: [`jezoock/mPlay3r-addons`](https://github.com/jezoock/mPlay3r-addons) (10 zero-dependency addons: Radios, Freebox Multiposte, Podcasts, LAN Library Share, Live Broadcast SSE/WebRTC, Visualizers, AudioWorklet DSP, Metadata Scraper, Classic/Hi-Fi Themes, Winamp `.wsz` Skins)
+- **Changelog**: see [CHANGELOG.md](CHANGELOG.md)
+
+## Project Status
+
+- **Phase 1 (completed)**: Base player without plugins or scraping — transport, playlist, 10-band EQ, minimalist theme with 5 color palettes, Web/PWA + Embeddable Web Component + Tauri v2 Desktop (portable & installable).
+- **Phase 2 (completed)**: Sandboxed Plugin SDK (`mplay3r/plugin-sdk`), lazy-loaded `<mp-store>` with cryptographic SHA-256 verification, and 10 official addons in `jezoock/mPlay3r-addons`. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ---
 
@@ -43,14 +50,16 @@ npm start
 
 Open `http://localhost:3333/` for the standalone app or `http://localhost:3333/embed-demo.html` for the multi-instance embed & external `ds-trigger` demo.
 
-### Production Build & Tests
+### Production Build, Release Checks & Tests
 
 ```bash
-npm run build       # Compiles SCSS theme + Stencil www/, dist/, dist/components/, loader/
-npm test            # Runs zero-dependency core unit tests on Node 22
-npm run typecheck   # TypeScript type checking
-npm run lint        # ESLint
-npm run lint:css    # Stylelint
+npm run build           # Compiles SCSS theme + Stencil www/, dist/, dist/components/, loader/
+npm run check:size      # Enforces gzip/brotli weight ceilings
+npm run check:release   # Verifies SemVer parity (TS/Rust/Tauri/CHANGELOG) & GitHub Pages subpath safety
+npm test                # Runs zero-dependency core unit tests on Node 22
+npm run typecheck       # TypeScript type checking
+npm run lint            # ESLint
+npm run lint:css        # Stylelint
 ```
 
 ### Desktop (Tauri v2)

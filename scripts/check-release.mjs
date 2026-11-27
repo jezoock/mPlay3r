@@ -41,6 +41,9 @@ export function collectReleaseChecks() {
   if (coreVersion !== pkgVersion) {
     errors.push(`Version mismatch: CORE_VERSION (${coreVersion}) !== package.json (${pkgVersion})`);
   }
+  if (!pkg.scripts?.tauri) {
+    errors.push('package.json must define a "tauri" script for tauri-apps/tauri-action desktop releases');
+  }
 
   const changelogPath = path.join(root, 'CHANGELOG.md');
   if (!fs.existsSync(changelogPath)) {
